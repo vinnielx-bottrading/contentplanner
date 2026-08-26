@@ -1556,6 +1556,7 @@ _0x109761["addEventListener"]("click",()=>{if(!_0xacfd17)return;const _0x115d98=
     animation: toastFlyIn .45s cubic-bezier(.22,1,.36,1) forwards;
   }
   .toast-item.toast-approve{ border-left-color:#34a853; }
+  .toast-item.toast-delete{ border-left-color:#d64545; }
   .toast-item.toast-leave{
     animation: toastFlyOut .35s ease-in forwards;
   }
@@ -1610,10 +1611,10 @@ _0x109761["addEventListener"]("click",()=>{if(!_0xacfd17)return;const _0x115d98=
   function showToast(opts){
     if (!STACK) return;
     var isApprove = opts.type === 'approve';
-    var icon = isApprove ? '✅' : (opts.type === 'new' ? '🆕' : '📝');
+    var icon = isApprove ? '✅' : opts.type === 'new' ? '🆕' : opts.type === 'delete' ? '🗑️' : '📝';
 
     var el = document.createElement('div');
-    el.className = 'toast-item' + (isApprove ? ' toast-approve' : '');
+    el.className = 'toast-item' + (isApprove ? ' toast-approve' : '') + (opts.type === 'delete' ? ' toast-delete' : '');
     el.innerHTML =
       '<span class="toast-icon">' + icon + '</span>' +
       '<span class="toast-body">' +
@@ -1685,21 +1686,42 @@ _0x109761["addEventListener"]("click",()=>{if(!_0xacfd17)return;const _0x115d98=
   var lastTasks = snapshotOf(readJSON(TASKS_KEY), ['progress', 'description', 'issue', 'solution']);
   var lastTrade = snapshotOf(readJSON(TRADE_KEY), ['status', 'name', 'description']);
 
+  // Lưu tên/tiêu đề của từng mục tại lần kiểm tra gần nhất, để khi một mục bị
+  // xóa vẫn hiển thị được tên của nó trong thông báo (lúc đó mục đã biến mất
+  // khỏi dữ liệu nên không thể tra cứu lại được nữa).
+  var lastLabels = { content: {}, trade: {}, tasks: {} };
+  (function seedLabels(){
+    readJSON(CONTENT_KEY).forEach(function(item){
+      if (item && item.id) lastLabels.content[item.id] = truncate(item.content || item.bodyHtml || '', 60) || '(không có tiêu đề)';
+    });
+    readJSON(TRADE_KEY).forEach(function(item){
+      if (item && item.id) lastLabels.trade[item.id] = truncate(item.name || '', 60) || '(không có tên sự kiện)';
+    });
+    readJSON(TASKS_KEY).forEach(function(item){
+      if (item && item.id) lastLabels.tasks[item.id] = truncate(item.name || '', 60) || '(không có tên công việc)';
+    });
+  })();
+
   function checkContent(){
     var list = readJSON(CONTENT_KEY);
     var current = snapshotOf(list, ['status', 'content', 'bodyHtml']);
+    var currentIds = {};
 
     list.forEach(function(item){
       if (!item || !item.id) return;
+      currentIds[item.id] = true;
+      var label = truncate(item.content || item.bodyHtml || '', 60) || '(không có tiêu đề)';
       var prevSig = lastContent[item.id];
-      var curSig = current[item.id];
-      if (prevSig === undefined || prevSig === curSig) return;
+
+      if (prevSig === undefined) {
+        showToast({ type: 'new', title: 'Content mới được thêm', message: label });
+        return;
+      }
+      if (prevSig === current[item.id]) return;
 
       var prevStatus = prevSig.split('|')[0];
-      var curStatus = item.status;
-      var becameApproved = APPROVED_CONTENT_STATUSES.indexOf(curStatus) !== -1 &&
+      var becameApproved = APPROVED_CONTENT_STATUSES.indexOf(item.status) !== -1 &&
         APPROVED_CONTENT_STATUSES.indexOf(prevStatus) === -1;
-      var label = truncate(item.content || item.bodyHtml || '', 60) || '(không có tiêu đề)';
 
       showToast(becameApproved ? {
         type: 'approve',
@@ -1712,22 +1734,44 @@ _0x109761["addEventListener"]("click",()=>{if(!_0xacfd17)return;const _0x115d98=
       });
     });
 
+    Object.keys(lastLabels.content).forEach(function(id){
+      if (!currentIds[id]) {
+        showToast({
+          type: 'delete',
+          title: 'Content đã bị xóa',
+          message: lastLabels.content[id]
+        });
+      }
+    });
+
     lastContent = current;
+    lastLabels.content = {};
+    list.forEach(function(item){
+      if (item && item.id) {
+        lastLabels.content[item.id] = truncate(item.content || item.bodyHtml || '', 60) || '(không có tiêu đề)';
+      }
+    });
   }
 
   function checkTrade(){
     var list = readJSON(TRADE_KEY);
     var current = snapshotOf(list, ['status', 'name', 'description']);
+    var currentIds = {};
 
     list.forEach(function(item){
       if (!item || !item.id) return;
+      currentIds[item.id] = true;
+      var label = truncate(item.name || '', 60) || '(không có tên sự kiện)';
       var prevSig = lastTrade[item.id];
-      var curSig = current[item.id];
-      if (prevSig === undefined || prevSig === curSig) return;
+
+      if (prevSig === undefined) {
+        showToast({ type: 'new', title: 'Sự kiện Trade Marketing mới được thêm', message: label });
+        return;
+      }
+      if (prevSig === current[item.id]) return;
 
       var prevStatus = prevSig.split('|')[0];
       var becameApproved = item.status === 'Đã duyệt' && prevStatus !== 'Đã duyệt';
-      var label = truncate(item.name || '', 60) || '(không có tên sự kiện)';
 
       showToast(becameApproved ? {
         type: 'approve',
@@ -1740,27 +1784,62 @@ _0x109761["addEventListener"]("click",()=>{if(!_0xacfd17)return;const _0x115d98=
       });
     });
 
+    Object.keys(lastLabels.trade).forEach(function(id){
+      if (!currentIds[id]) {
+        showToast({
+          type: 'delete',
+          title: 'Sự kiện Trade Marketing đã bị xóa',
+          message: lastLabels.trade[id]
+        });
+      }
+    });
+
     lastTrade = current;
+    lastLabels.trade = {};
+    list.forEach(function(item){
+      if (item && item.id) {
+        lastLabels.trade[item.id] = truncate(item.name || '', 60) || '(không có tên sự kiện)';
+      }
+    });
   }
 
   function checkTasks(){
     var list = readJSON(TASKS_KEY);
     var current = snapshotOf(list, ['progress', 'description', 'issue', 'solution']);
+    var currentIds = {};
 
     list.forEach(function(item){
       if (!item || !item.id) return;
+      currentIds[item.id] = true;
+      var label = truncate(item.name || '', 60) || '(không có tên công việc)';
       var prevSig = lastTasks[item.id];
-      var curSig = current[item.id];
-      if (prevSig === undefined || prevSig === curSig) return;
 
-      showToast({
-        type: 'update',
-        title: 'Công việc vừa được cập nhật',
-        message: truncate(item.name || '', 60) || '(không có tên công việc)'
-      });
+      if (prevSig === undefined) {
+        showToast({ type: 'new', title: 'Công việc mới được thêm', message: label });
+        return;
+      }
+      if (prevSig === current[item.id]) return;
+
+      showToast({ type: 'update', title: 'Công việc vừa được cập nhật', message: label });
+    });
+
+    Object.keys(lastLabels.tasks).forEach(function(id){
+      if (!currentIds[id]) {
+        showToast({
+          type: 'delete',
+          title: 'Công việc đã bị xóa',
+          message: lastLabels.tasks[id]
+        });
+      }
     });
 
     lastTasks = current;
+    lastLabels.tasks = {};
+    list.forEach(function(item){
+      if (item && item.id) {
+        lastLabels.tasks[item.id] = truncate(item.name || '', 60) || '(không có tên công việc)';
+      }
+    });
   }
 
   function checkAll(){
@@ -1769,9 +1848,32 @@ _0x109761["addEventListener"]("click",()=>{if(!_0xacfd17)return;const _0x115d98=
     checkTasks();
   }
 
-  // Theo dõi định kỳ để bắt các thay đổi đến từ đồng bộ real-time (người khác
-  // thao tác trên thiết bị/tab khác), kể cả khi tab này đang không được focus.
-  setInterval(checkAll, 2000);
+  // Bắt thay đổi NGAY LẬP TỨC tại đúng thời điểm ứng dụng ghi dữ liệu vào
+  // localStorage — kể cả khi dữ liệu đó vừa được đẩy về từ đồng bộ real-time
+  // (Supabase) do người khác thao tác trên máy/thiết bị khác. Cách này không
+  // dùng setInterval polling nên không bị trình duyệt "throttle" (làm chậm/
+  // tạm dừng bộ đếm giờ) khi tab đang chạy nền hoặc người dùng đang ở ứng
+  // dụng khác — vốn là lúc thông báo cần hiện ra nhất.
+  var WATCHED_KEYS = [CONTENT_KEY, TASKS_KEY, TRADE_KEY];
+  var nativeSetItem = Storage.prototype.setItem;
+  Storage.prototype.setItem = function(key, value){
+    var result = nativeSetItem.apply(this, arguments);
+    if (this === window.localStorage && WATCHED_KEYS.indexOf(key) !== -1) {
+      // Chạy sau khi giá trị đã thực sự được ghi vào localStorage.
+      setTimeout(checkAll, 0);
+    }
+    return result;
+  };
+
+  // Lưới an toàn dự phòng: nếu vì lý do nào đó việc ghi localStorage không đi
+  // qua setItem (ví dụ trình duyệt lạ), vẫn kiểm tra định kỳ mỗi 15 giây.
+  setInterval(checkAll, 15000);
+
+  // Khi người dùng quay lại tab/trang sau khi rời đi, kiểm tra ngay để không
+  // bỏ lỡ thay đổi xảy ra trong lúc họ vắng mặt.
+  document.addEventListener('visibilitychange', function(){
+    if (!document.hidden) checkAll();
+  });
 
   // Bắt thay đổi ngay lập tức khi một tab khác (cùng trình duyệt) ghi localStorage.
   window.addEventListener('storage', function(e){
