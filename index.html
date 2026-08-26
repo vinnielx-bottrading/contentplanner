@@ -1528,5 +1528,259 @@ _0x109761["addEventListener"]("click",()=>{if(!_0xacfd17)return;const _0x115d98=
 })();
 </script>
 
+<style>
+  #toastStack{
+    position: fixed;
+    bottom: 22px;
+    right: 22px;
+    z-index: 99999;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-width: 340px;
+    pointer-events: none;
+  }
+  .toast-item{
+    pointer-events: auto;
+    background: #ffffff;
+    border: 1px solid #e3e7ee;
+    border-left: 4px solid #3c78d8;
+    border-radius: 10px;
+    box-shadow: 0 10px 26px rgba(20,25,40,.16), 0 2px 6px rgba(20,25,40,.08);
+    padding: 12px 14px;
+    display: flex;
+    align-items: flex-start;
+    gap: 9px;
+    opacity: 0;
+    transform: translateY(28px);
+    animation: toastFlyIn .45s cubic-bezier(.22,1,.36,1) forwards;
+  }
+  .toast-item.toast-approve{ border-left-color:#34a853; }
+  .toast-item.toast-leave{
+    animation: toastFlyOut .35s ease-in forwards;
+  }
+  .toast-item .toast-icon{ font-size:16px; line-height:1.2; margin-top:1px; }
+  .toast-item .toast-body{ flex:1; min-width:0; }
+  .toast-item .toast-title{
+    font-size:13px; font-weight:700; color:#1f2430; margin-bottom:2px;
+  }
+  .toast-item .toast-msg{
+    font-size:12px; color:#7a8194; line-height:1.4;
+    overflow-wrap: break-word;
+  }
+  @keyframes toastFlyIn{
+    0%{ opacity:0; transform: translateY(30px) scale(.98); }
+    65%{ opacity:1; transform: translateY(-2px) scale(1.004); }
+    100%{ opacity:1; transform: translateY(0) scale(1); }
+  }
+  @keyframes toastFlyOut{
+    0%{ opacity:1; transform: translateY(0); }
+    100%{ opacity:0; transform: translateY(18px); }
+  }
+  @media (max-width: 520px){
+    #toastStack{ left: 12px; right: 12px; max-width: none; bottom: 12px; }
+  }
+</style>
+<div id="toastStack" aria-live="polite"></div>
+
+<script>
+(function(){
+  // ==========================================================================
+  // Thông báo popup: hiện khi có content được cập nhật / phê duyệt.
+  // Hoạt động độc lập với script chính phía trên (không đụng vào code cũ),
+  // dựa trên việc so sánh dữ liệu trong localStorage theo thời gian — dữ liệu
+  // này được đồng bộ real-time (Supabase) và cũng được ghi lại mỗi khi có ai
+  // thao tác, nên phát hiện được cả thay đổi do người khác thực hiện.
+  // ==========================================================================
+
+  var STACK = document.getElementById('toastStack');
+  var MAX_TOASTS = 4;
+
+  function escapeHtml(str){
+    return String(str == null ? '' : str).replace(/[&<>"']/g, function(c){
+      return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c];
+    });
+  }
+
+  function truncate(str, n){
+    str = String(str || '').replace(/<[^>]*>/g, '').trim();
+    return str.length > n ? str.slice(0, n) + '…' : str;
+  }
+
+  function showToast(opts){
+    if (!STACK) return;
+    var isApprove = opts.type === 'approve';
+    var icon = isApprove ? '✅' : (opts.type === 'new' ? '🆕' : '📝');
+
+    var el = document.createElement('div');
+    el.className = 'toast-item' + (isApprove ? ' toast-approve' : '');
+    el.innerHTML =
+      '<span class="toast-icon">' + icon + '</span>' +
+      '<span class="toast-body">' +
+        '<div class="toast-title">' + escapeHtml(opts.title) + '</div>' +
+        '<div class="toast-msg">' + escapeHtml(opts.message) + '</div>' +
+      '</span>';
+    STACK.appendChild(el);
+
+    while (STACK.children.length > MAX_TOASTS) {
+      STACK.removeChild(STACK.firstChild);
+    }
+
+    // Tự động biến mất sau ~5 giây với hiệu ứng nhẹ nhàng.
+    setTimeout(function(){
+      el.classList.add('toast-leave');
+      setTimeout(function(){
+        if (el.parentNode) el.parentNode.removeChild(el);
+      }, 400);
+    }, 5000);
+
+    // Nếu người dùng đang ở tab/ứng dụng khác, vẫn báo qua thông báo hệ thống
+    // của trình duyệt (cần trình duyệt đã cấp quyền Notification).
+    try {
+      if (document.hidden && window.Notification && Notification.permission === 'granted') {
+        var n = new Notification(opts.title, { body: opts.message, silent: false });
+        setTimeout(function(){ n.close(); }, 6000);
+      }
+    } catch (e) { /* bỏ qua nếu trình duyệt không hỗ trợ */ }
+  }
+
+  // Xin quyền gửi thông báo hệ thống ngay khi người dùng có tương tác đầu tiên
+  // với trang (nhiều trình duyệt yêu cầu phải có cử chỉ người dùng).
+  try {
+    if (window.Notification && Notification.permission === 'default') {
+      var askPermissionOnce = function(){
+        Notification.requestPermission();
+        document.removeEventListener('click', askPermissionOnce);
+      };
+      document.addEventListener('click', askPermissionOnce, { once: true });
+    }
+  } catch (e) { /* bỏ qua nếu trình duyệt không hỗ trợ Notification */ }
+
+  var CONTENT_KEY = 'content_planner_data_v1';
+  var TASKS_KEY = 'content_planner_tasks_v1';
+  var TRADE_KEY = 'content_planner_trade_events_v1';
+  var APPROVED_CONTENT_STATUSES = ['Chờ xuất bản', 'Xuất bản'];
+
+  function readJSON(key){
+    try {
+      var raw = localStorage.getItem(key);
+      if (!raw) return [];
+      var parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (e) { return []; }
+  }
+
+  function snapshotOf(list, fields){
+    var map = {};
+    (list || []).forEach(function(item){
+      if (!item || !item.id) return;
+      map[item.id] = fields.map(function(f){
+        return item[f] == null ? '' : String(item[f]);
+      }).join('|');
+    });
+    return map;
+  }
+
+  var lastContent = snapshotOf(readJSON(CONTENT_KEY), ['status', 'content', 'bodyHtml']);
+  var lastTasks = snapshotOf(readJSON(TASKS_KEY), ['progress', 'description', 'issue', 'solution']);
+  var lastTrade = snapshotOf(readJSON(TRADE_KEY), ['status', 'name', 'description']);
+
+  function checkContent(){
+    var list = readJSON(CONTENT_KEY);
+    var current = snapshotOf(list, ['status', 'content', 'bodyHtml']);
+
+    list.forEach(function(item){
+      if (!item || !item.id) return;
+      var prevSig = lastContent[item.id];
+      var curSig = current[item.id];
+      if (prevSig === undefined || prevSig === curSig) return;
+
+      var prevStatus = prevSig.split('|')[0];
+      var curStatus = item.status;
+      var becameApproved = APPROVED_CONTENT_STATUSES.indexOf(curStatus) !== -1 &&
+        APPROVED_CONTENT_STATUSES.indexOf(prevStatus) === -1;
+      var label = truncate(item.content || item.bodyHtml || '', 60) || '(không có tiêu đề)';
+
+      showToast(becameApproved ? {
+        type: 'approve',
+        title: 'Content đã được phê duyệt',
+        message: label
+      } : {
+        type: 'update',
+        title: 'Content vừa được cập nhật',
+        message: label
+      });
+    });
+
+    lastContent = current;
+  }
+
+  function checkTrade(){
+    var list = readJSON(TRADE_KEY);
+    var current = snapshotOf(list, ['status', 'name', 'description']);
+
+    list.forEach(function(item){
+      if (!item || !item.id) return;
+      var prevSig = lastTrade[item.id];
+      var curSig = current[item.id];
+      if (prevSig === undefined || prevSig === curSig) return;
+
+      var prevStatus = prevSig.split('|')[0];
+      var becameApproved = item.status === 'Đã duyệt' && prevStatus !== 'Đã duyệt';
+      var label = truncate(item.name || '', 60) || '(không có tên sự kiện)';
+
+      showToast(becameApproved ? {
+        type: 'approve',
+        title: 'Sự kiện Trade Marketing đã được duyệt',
+        message: label
+      } : {
+        type: 'update',
+        title: 'Sự kiện Trade Marketing vừa cập nhật',
+        message: label
+      });
+    });
+
+    lastTrade = current;
+  }
+
+  function checkTasks(){
+    var list = readJSON(TASKS_KEY);
+    var current = snapshotOf(list, ['progress', 'description', 'issue', 'solution']);
+
+    list.forEach(function(item){
+      if (!item || !item.id) return;
+      var prevSig = lastTasks[item.id];
+      var curSig = current[item.id];
+      if (prevSig === undefined || prevSig === curSig) return;
+
+      showToast({
+        type: 'update',
+        title: 'Công việc vừa được cập nhật',
+        message: truncate(item.name || '', 60) || '(không có tên công việc)'
+      });
+    });
+
+    lastTasks = current;
+  }
+
+  function checkAll(){
+    checkContent();
+    checkTrade();
+    checkTasks();
+  }
+
+  // Theo dõi định kỳ để bắt các thay đổi đến từ đồng bộ real-time (người khác
+  // thao tác trên thiết bị/tab khác), kể cả khi tab này đang không được focus.
+  setInterval(checkAll, 2000);
+
+  // Bắt thay đổi ngay lập tức khi một tab khác (cùng trình duyệt) ghi localStorage.
+  window.addEventListener('storage', function(e){
+    if (e.key === CONTENT_KEY || e.key === TASKS_KEY || e.key === TRADE_KEY) {
+      checkAll();
+    }
+  });
+})();
+</script>
+
 </body>
 </html>
