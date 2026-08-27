@@ -2340,18 +2340,42 @@ _0x109761["addEventListener"]("click",()=>{if(!_0xacfd17)return;const _0x115d98=
 
   window.__vinhShowStatsView = showStatsView;
 
-  // -------------------- Trang cover đầu/cuối tháng --------------------
-  // Hiện từ ngày 28 tháng trước đến ngày 5 tháng sau, mỗi phiên trình
-  // duyệt (tab) chỉ hiện một lần để không làm phiền khi người dùng
-  // tải lại trang nhiều lần trong lúc làm việc.
+  // ==========================================================================
+  // ⚙️ CẤU HÌNH TRANG COVER THỐNG KÊ ĐẦU/CUỐI THÁNG — chỉnh trực tiếp tại đây
+  // ==========================================================================
+  var COVER_CONFIG = {
+    // Cover sẽ hiện nếu ngày hiện tại (theo lịch máy tính) >= START_DAY
+    // (tính từ cuối tháng) HOẶC <= END_DAY (tính từ đầu tháng kế tiếp).
+    // Mặc định: từ ngày 28 tháng trước đến ngày 5 tháng sau.
+    START_DAY: 27,   // đổi thành 25 nếu muốn hiện sớm hơn (từ ngày 25), v.v.
+    END_DAY: 5,      // đổi thành 10 nếu muốn hiện tới ngày 10 tháng sau, v.v.
+
+    // Số giây cover hiển thị trước khi tự biến mất và chuyển vào tab Thống kê.
+    DISPLAY_SECONDS: 5,
+
+    // true  = mỗi phiên trình duyệt (mỗi lần mở tab mới) chỉ hiện cover 1 lần,
+    //         dù người dùng có tải lại (F5) trang nhiều lần trong ngày.
+    // false = hiện lại mỗi lần tải trang, miễn là vẫn trong khoảng ngày cho phép.
+    SHOW_ONCE_PER_SESSION: true,
+
+    // true  = bật cover; false = tắt hẳn tính năng cover (chỉ dùng tab Thống kê
+    //         bằng cách bấm nút "📊 Thống kê tháng" như bình thường).
+    ENABLED: true
+  };
+  var COVER_SESSION_KEY = 'vps_stats_cover_shown';
+  // ==========================================================================
+  // ⚙️ Hết phần cấu hình — không cần chỉnh gì bên dưới đây.
+  // ==========================================================================
+
   function isInCoverWindow(){
     var day = new Date().getDate();
-    return day >= 28 || day <= 5;
+    return day >= COVER_CONFIG.START_DAY || day <= COVER_CONFIG.END_DAY;
   }
 
   function initCover(){
+    if (!COVER_CONFIG.ENABLED) return;
     if (!isInCoverWindow()) return;
-    if (sessionStorage.getItem('vps_stats_cover_shown')) return;
+    if (COVER_CONFIG.SHOW_ONCE_PER_SESSION && sessionStorage.getItem(COVER_SESSION_KEY)) return;
 
     var overlay = document.getElementById('statsCoverOverlay');
     var quick = document.getElementById('coverQuickStats');
@@ -2367,7 +2391,7 @@ _0x109761["addEventListener"]("click",()=>{if(!_0xacfd17)return;const _0x115d98=
     }
 
     overlay.classList.add('open');
-    sessionStorage.setItem('vps_stats_cover_shown', '1');
+    if (COVER_CONFIG.SHOW_ONCE_PER_SESSION) sessionStorage.setItem(COVER_SESSION_KEY, '1');
 
     setTimeout(function(){
       overlay.classList.add('closing');
@@ -2376,7 +2400,7 @@ _0x109761["addEventListener"]("click",()=>{if(!_0xacfd17)return;const _0x115d98=
         overlay.classList.remove('closing');
         if (window.__vinhShowStatsView) window.__vinhShowStatsView();
       }, 480);
-    }, 5000);
+    }, COVER_CONFIG.DISPLAY_SECONDS * 1000);
   }
 
   setTimeout(initCover, 700);
