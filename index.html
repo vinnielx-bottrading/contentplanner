@@ -733,21 +733,37 @@
 
 <main>
   <section id="plannerSection">
-    <div class="sub-toolbar">
-      <input type="text" id="searchBox" placeholder="Tìm nội dung...">
-      <select id="filterMonth"><option value="">Tất cả tháng</option></select>
-      <select id="filterStatus"><option value="">Tất cả Trạng thái</option></select>
-      <select id="filterBrand"><option value="">Tất cả Thương hiệu</option></select>
-      <select id="filterPillar"><option value="">Tất cả Pillar</option></select>
-      <select id="filterChannel"><option value="">Tất cả Kênh</option></select>
-      <button class="btn-ghost" id="exportBtn">⬇ Export JSON</button>
-      <button class="btn-ghost" id="importBtn">⬆ Import JSON</button>
-      <input type="file" id="importFile" accept="application/json">
-      <button class="btn-primary" id="addBtn">+ Thêm Content</button>
+    <div class="planner-view-switch" id="plannerViewSwitch">
+      <button type="button" class="view-switch-btn active" id="viewBoardBtn">📋 Bảng nội dung</button>
+      <button type="button" class="view-switch-btn" id="viewStatsBtn">📊 Thống kê tháng</button>
     </div>
-    <div class="grid-count" id="gridCount"></div>
-    <div id="board"></div>
+
+    <div id="plannerBoardView">
+      <div class="sub-toolbar">
+        <input type="text" id="searchBox" placeholder="Tìm nội dung...">
+        <select id="filterMonth"><option value="">Tất cả tháng</option></select>
+        <select id="filterStatus"><option value="">Tất cả Trạng thái</option></select>
+        <select id="filterBrand"><option value="">Tất cả Thương hiệu</option></select>
+        <select id="filterPillar"><option value="">Tất cả Pillar</option></select>
+        <select id="filterChannel"><option value="">Tất cả Kênh</option></select>
+        <button class="btn-ghost" id="exportBtn">⬇ Export JSON</button>
+        <button class="btn-ghost" id="importBtn">⬆ Import JSON</button>
+        <input type="file" id="importFile" accept="application/json">
+        <button class="btn-primary" id="addBtn">+ Thêm Content</button>
+      </div>
+      <div class="grid-count" id="gridCount"></div>
+      <div id="board"></div>
+    </div>
+
+    <div id="plannerStatsView" class="hidden-section">
+      <div class="stats-toolbar">
+        <span class="stats-toolbar-label">🗓️ Xem thống kê của:</span>
+        <select id="statsMonthSelect"></select>
+      </div>
+      <div id="statsContent"></div>
+    </div>
   </section>
+
 
   <section id="tasksSection" class="hidden-section">
     <div class="sub-toolbar">
@@ -1881,6 +1897,489 @@ _0x109761["addEventListener"]("click",()=>{if(!_0xacfd17)return;const _0x115d98=
       checkAll();
     }
   });
+})();
+</script>
+
+<style>
+  /* ===================== Thống kê Content Planner ===================== */
+  .planner-view-switch{
+    display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap;
+  }
+  .view-switch-btn{
+    border:1px solid #e1e5ee; background:#fff; color:#4b5568;
+    padding:8px 16px; border-radius:999px; font-size:13px; font-weight:700;
+    cursor:pointer; transition:all .18s ease;
+  }
+  .view-switch-btn:hover{ border-color:#94a3d6; }
+  .view-switch-btn.active{
+    background:linear-gradient(135deg,#6a5cf0,#a259e6);
+    color:#fff; border-color:transparent;
+    box-shadow:0 6px 16px rgba(106,92,240,.32);
+  }
+
+  .stats-toolbar{
+    display:flex; align-items:center; gap:10px; margin-bottom:20px;
+  }
+  .stats-toolbar-label{ font-size:13px; font-weight:700; color:#4b5568; }
+  #statsMonthSelect{
+    border:1px solid #dfe3ee; border-radius:8px; padding:7px 12px; font-size:13px; font-weight:600;
+  }
+
+  .reveal-on-scroll{
+    opacity:0; transform:translateY(34px);
+    transition:opacity .6s cubic-bezier(.22,1,.36,1), transform .6s cubic-bezier(.22,1,.36,1);
+  }
+  .reveal-on-scroll.revealed{ opacity:1; transform:translateY(0); }
+
+  .stats-hero{
+    background:linear-gradient(135deg,#6a5cf0 0%,#a259e6 55%,#ee609c 100%);
+    border-radius:20px; padding:34px 24px; text-align:center; color:#fff;
+    box-shadow:0 16px 40px rgba(106,92,240,.28); margin-bottom:26px;
+  }
+  .stats-hero-icon{ font-size:34px; margin-bottom:6px; }
+  .stats-hero-number{
+    font-size:56px; font-weight:900; line-height:1; letter-spacing:-1px;
+    text-shadow:0 4px 14px rgba(0,0,0,.18);
+  }
+  .stats-hero-label{ font-size:15px; font-weight:700; margin-top:10px; opacity:.96; }
+  .stats-hero-sub{ font-size:12.5px; margin-top:4px; opacity:.8; }
+
+  .stats-section{ margin-bottom:28px; }
+  .stats-section-title{
+    font-size:16px; font-weight:800; color:#2c2f45; margin:0 0 14px;
+  }
+  .stats-grid{
+    display:grid; grid-template-columns:repeat(auto-fill,minmax(190px,1fr)); gap:14px;
+  }
+
+  .stat-mini-card{
+    display:flex; align-items:center; gap:12px;
+    background:#fff; border:1px solid #eceef7; border-radius:16px;
+    padding:14px; box-shadow:0 6px 18px rgba(30,34,60,.06);
+    transition:transform .18s ease, box-shadow .18s ease;
+  }
+  .stat-mini-card:hover{ transform:translateY(-3px); box-shadow:0 10px 26px rgba(30,34,60,.11); }
+  .stat-mini-icon{
+    font-size:34px; line-height:1; flex-shrink:0;
+    width:54px; height:54px; display:flex; align-items:center; justify-content:center;
+    background:linear-gradient(135deg,#eef1ff,#f7ecff); border-radius:14px;
+  }
+  .stat-mini-body{ flex:1; min-width:0; }
+  .stat-mini-label{ font-size:12.5px; font-weight:700; color:#565b74; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .stat-mini-count{ font-size:20px; font-weight:900; color:#22243a; margin-top:2px; }
+  .stat-mini-unit{ font-size:11px; font-weight:600; color:#9298ac; }
+  .stat-mini-bar{ height:6px; background:#f0f1f8; border-radius:99px; margin-top:8px; overflow:hidden; }
+  .stat-mini-bar-fill{
+    height:100%; border-radius:99px;
+    background:linear-gradient(90deg,#6a5cf0,#ee609c);
+    transition:width .8s cubic-bezier(.22,1,.36,1);
+  }
+
+  .stats-empty{
+    font-size:13px; color:#8b91a7; background:#f7f8fc; border-radius:12px; padding:18px; text-align:center;
+  }
+
+  .leaderboard{ display:flex; flex-direction:column; gap:8px; }
+  .leaderboard-row{
+    display:flex; align-items:center; gap:12px;
+    background:#fff; border:1px solid #eceef7; border-radius:14px; padding:10px 14px;
+    box-shadow:0 4px 12px rgba(30,34,60,.05);
+  }
+  .leaderboard-rank{ font-size:18px; width:26px; text-align:center; font-weight:800; color:#7a7f96; }
+  .leaderboard-avatar{
+    width:34px; height:34px; border-radius:50%; flex-shrink:0;
+    background:linear-gradient(135deg,#6a5cf0,#a259e6); color:#fff;
+    display:flex; align-items:center; justify-content:center;
+    font-size:12px; font-weight:800;
+  }
+  .leaderboard-name{ flex:1; font-size:13.5px; font-weight:700; color:#2c2f45; }
+  .leaderboard-count{
+    font-size:12px; font-weight:800; color:#6a5cf0;
+    background:#f1eeff; padding:4px 10px; border-radius:999px;
+  }
+
+  .timeline-chart{
+    display:flex; align-items:flex-end; gap:14px; height:180px;
+    background:#fff; border:1px solid #eceef7; border-radius:16px; padding:20px 24px 12px;
+    box-shadow:0 6px 18px rgba(30,34,60,.06);
+  }
+  .timeline-bar-wrap{
+    flex:1; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; height:100%;
+  }
+  .timeline-bar-count{ font-size:12px; font-weight:800; color:#2c2f45; margin-bottom:6px; }
+  .timeline-bar{
+    width:100%; max-width:38px; border-radius:8px 8px 3px 3px;
+    background:linear-gradient(180deg,#a259e6,#6a5cf0);
+    transition:height .9s cubic-bezier(.22,1,.36,1);
+  }
+  .timeline-bar-label{ font-size:11px; font-weight:700; color:#8b91a7; margin-top:8px; }
+
+  /* ------------------- Trang cover thống kê đầu tháng ------------------- */
+  .stats-cover-overlay{
+    position:fixed; inset:0; z-index:999999;
+    display:flex; align-items:center; justify-content:center;
+    background:linear-gradient(135deg,#6a5cf0 0%,#a259e6 45%,#ee609c 100%);
+    opacity:0; visibility:hidden; pointer-events:none;
+    transition:opacity .45s ease;
+  }
+  .stats-cover-overlay.open{ opacity:1; visibility:visible; pointer-events:auto; }
+  .stats-cover-overlay.closing{ opacity:0; }
+  .cover-inner{
+    text-align:center; color:#fff; padding:32px; max-width:640px;
+    transform:translateY(16px) scale(.97); opacity:0;
+    transition:transform .55s cubic-bezier(.22,1,.36,1), opacity .55s ease;
+  }
+  .stats-cover-overlay.open .cover-inner{ transform:translateY(0) scale(1); opacity:1; }
+  .cover-emoji{ font-size:52px; margin-bottom:14px; }
+  .cover-slogan{
+    font-size:clamp(22px,4vw,34px); font-weight:900; line-height:1.3;
+    text-shadow:0 4px 18px rgba(0,0,0,.22); margin:0 0 26px;
+  }
+  .cover-quick-stats{ display:flex; justify-content:center; gap:22px; flex-wrap:wrap; }
+  .cover-quick-item{
+    background:rgba(255,255,255,.16); border:1px solid rgba(255,255,255,.3);
+    border-radius:16px; padding:14px 20px; min-width:90px; backdrop-filter:blur(4px);
+  }
+  .cover-quick-num{ font-size:28px; font-weight:900; }
+  .cover-quick-label{ font-size:11.5px; font-weight:700; opacity:.9; margin-top:2px; }
+  @media (max-width:520px){
+    .cover-quick-stats{ gap:12px; }
+    .cover-quick-item{ min-width:74px; padding:10px 14px; }
+  }
+</style>
+
+<div class="stats-cover-overlay" id="statsCoverOverlay">
+  <div class="cover-inner">
+    <div class="cover-emoji">🎉</div>
+    <h1 class="cover-slogan">CÙNG XEM BẠN ĐÃ GIỎI NHIỀU NHƯ THẾ NÀO TRONG THÁNG QUA</h1>
+    <div class="cover-quick-stats" id="coverQuickStats"></div>
+  </div>
+</div>
+
+<script>
+(function(){
+  // ==========================================================================
+  // Tab "Thống kê tháng" trong Content Planner: tổng hợp hoạt động theo kênh,
+  // thương hiệu, danh mục sản phẩm, người đăng và mốc thời gian trong tháng.
+  // ==========================================================================
+
+  var CONTENT_KEY = 'content_planner_data_v1';
+  var APPROVED_STATUSES = ['Chờ xuất bản', 'Xuất bản'];
+
+  var CHANNELS = [
+    { key: 'Facebook', icon: '📘' },
+    { key: 'TikTok', icon: '🎵' },
+    { key: 'Instagram', icon: '📸' },
+    { key: 'Threads', icon: '🧵' },
+    { key: 'YouTube', icon: '▶️' },
+    { key: 'Website', icon: '🌐' },
+    { key: 'Zalo', icon: '💬' }
+  ];
+  var BRANDS = [
+    { key: 'Travel', icon: '✈️' },
+    { key: 'Communications', icon: '📣' },
+    { key: 'Gift', icon: '🎁' },
+    { key: 'Horeca', icon: '🍽️' },
+    { key: 'Wellness Retreat', icon: '🧘' },
+    { key: 'Real Estate', icon: '🏠' },
+    { key: 'Trading', icon: '📈' },
+    { key: 'Education', icon: '🎓' },
+    { key: 'Working Cafe', icon: '☕' }
+  ];
+  var PRODUCTS = [
+    { key: 'Tour', icon: '🧳' },
+    { key: 'Vé máy bay', icon: '✈️' },
+    { key: 'Visa', icon: '🛂' },
+    { key: 'Cà phê', icon: '☕' },
+    { key: 'Bất Động Sản', icon: '🏢' },
+    { key: 'Retreat', icon: '🌿' },
+    { key: 'Catering', icon: '🍽️' }
+  ];
+
+  function readContent(){
+    try {
+      var raw = localStorage.getItem(CONTENT_KEY);
+      var parsed = raw ? JSON.parse(raw) : [];
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (e) { return []; }
+  }
+
+  function pad2(n){ return String(n).length < 2 ? '0' + n : String(n); }
+  function monthKeyOf(date){ return date.getFullYear() + '-' + pad2(date.getMonth() + 1); }
+
+  function prevMonthKey(){
+    var now = new Date();
+    var d = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    return monthKeyOf(d);
+  }
+
+  function monthLabel(key){
+    var parts = key.split('-');
+    return 'Tháng ' + parseInt(parts[1], 10) + '/' + parts[0];
+  }
+
+  function escapeHtml(str){
+    return String(str == null ? '' : str).replace(/[&<>"']/g, function(c){
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  function initials(name){
+    if (!name) return '?';
+    return name.trim().split(/\s+/).map(function(w){ return w[0]; }).slice(-2).join('').toUpperCase();
+  }
+
+  function countBy(list, field, isArrayField){
+    var map = {};
+    list.forEach(function(item){
+      if (isArrayField) {
+        (item[field] || []).forEach(function(v){ map[v] = (map[v] || 0) + 1; });
+      } else if (item[field]) {
+        map[item[field]] = (map[item[field]] || 0) + 1;
+      }
+    });
+    return map;
+  }
+
+  function computeStats(mKey){
+    var all = readContent();
+    var inMonth = all.filter(function(item){ return item && item.date && item.date.indexOf(mKey) === 0; });
+    var posted = inMonth.filter(function(item){ return APPROVED_STATUSES.indexOf(item.status) !== -1; });
+
+    var weekBuckets = [0, 0, 0, 0, 0];
+    posted.forEach(function(item){
+      var day = parseInt(item.date.slice(8, 10), 10) || 1;
+      var idx = Math.min(4, Math.floor((day - 1) / 7));
+      weekBuckets[idx]++;
+    });
+
+    return {
+      totalPlanned: inMonth.length,
+      totalPosted: posted.length,
+      byChannel: countBy(posted, 'channels', true),
+      byBrand: countBy(posted, 'brand', false),
+      byProduct: countBy(posted, 'product', false),
+      byAssignee: countBy(posted, 'assignee', false),
+      weekBuckets: weekBuckets
+    };
+  }
+
+  function renderStatCard(icon, label, count, total){
+    var pct = total > 0 ? Math.round((count / total) * 100) : 0;
+    return '<div class="stat-mini-card reveal-on-scroll">' +
+      '<div class="stat-mini-icon">' + icon + '</div>' +
+      '<div class="stat-mini-body">' +
+        '<div class="stat-mini-label">' + escapeHtml(label) + '</div>' +
+        '<div class="stat-mini-count">' + count + ' <span class="stat-mini-unit">bài</span></div>' +
+        '<div class="stat-mini-bar"><div class="stat-mini-bar-fill" style="width:' + pct + '%"></div></div>' +
+      '</div>' +
+    '</div>';
+  }
+
+  function renderSection(title, itemsHtml){
+    return '<div class="stats-section reveal-on-scroll">' +
+      '<h3 class="stats-section-title">' + title + '</h3>' +
+      '<div class="stats-grid">' + itemsHtml + '</div>' +
+    '</div>';
+  }
+
+  function render(mKey){
+    var stats = computeStats(mKey);
+    var container = document.getElementById('statsContent');
+    if (!container) return;
+
+    var channelHtml = CHANNELS.map(function(c){
+      return renderStatCard(c.icon, c.key, stats.byChannel[c.key] || 0, stats.totalPosted);
+    }).join('');
+
+    var brandHtml = BRANDS.map(function(b){
+      return renderStatCard(b.icon, b.key, stats.byBrand[b.key] || 0, stats.totalPosted);
+    }).join('');
+
+    var productHtml = PRODUCTS.map(function(p){
+      return renderStatCard(p.icon, p.key, stats.byProduct[p.key] || 0, stats.totalPosted);
+    }).join('');
+
+    var assigneeEntries = Object.keys(stats.byAssignee).sort(function(a, b){
+      return stats.byAssignee[b] - stats.byAssignee[a];
+    });
+    var medals = ['🥇', '🥈', '🥉'];
+    var assigneeHtml = assigneeEntries.length ? assigneeEntries.map(function(name, i){
+      return '<div class="leaderboard-row reveal-on-scroll">' +
+        '<span class="leaderboard-rank">' + (medals[i] || (i + 1)) + '</span>' +
+        '<span class="leaderboard-avatar">' + initials(name) + '</span>' +
+        '<span class="leaderboard-name">' + escapeHtml(name) + '</span>' +
+        '<span class="leaderboard-count">' + stats.byAssignee[name] + ' bài</span>' +
+      '</div>';
+    }).join('') : '<div class="stats-empty">Chưa có dữ liệu người đăng trong tháng này.</div>';
+
+    var maxWeek = Math.max.apply(null, stats.weekBuckets.concat([1]));
+    var weekHtml = stats.weekBuckets.map(function(count, i){
+      var h = Math.round((count / maxWeek) * 100);
+      return '<div class="timeline-bar-wrap">' +
+        '<div class="timeline-bar-count">' + count + '</div>' +
+        '<div class="timeline-bar" style="height:' + Math.max(h, 4) + '%"></div>' +
+        '<div class="timeline-bar-label">Tuần ' + (i + 1) + '</div>' +
+      '</div>';
+    }).join('');
+
+    container.innerHTML =
+      '<div class="stats-hero reveal-on-scroll">' +
+        '<div class="stats-hero-icon">🚀</div>' +
+        '<div class="stats-hero-number" data-count="' + stats.totalPosted + '">0</div>' +
+        '<div class="stats-hero-label">Tổng số bài đăng (Chờ xuất bản / Xuất bản) trong ' + monthLabel(mKey) + '</div>' +
+        '<div class="stats-hero-sub">' + stats.totalPlanned + ' content được lên kế hoạch trong tháng này</div>' +
+      '</div>' +
+      renderSection('📡 Theo từng kênh', channelHtml) +
+      renderSection('🏷️ Theo từng thương hiệu', brandHtml) +
+      renderSection('📦 Theo từng danh mục sản phẩm', productHtml) +
+      '<div class="stats-section reveal-on-scroll">' +
+        '<h3 class="stats-section-title">🏆 Người đăng nhiều nhất</h3>' +
+        '<div class="leaderboard">' + assigneeHtml + '</div>' +
+      '</div>' +
+      '<div class="stats-section reveal-on-scroll">' +
+        '<h3 class="stats-section-title">📅 Mốc thời gian trong tháng</h3>' +
+        '<div class="timeline-chart">' + weekHtml + '</div>' +
+      '</div>';
+
+    animateCountUp();
+    observeReveal();
+  }
+
+  function animateCountUp(){
+    var el = document.querySelector('.stats-hero-number');
+    if (!el) return;
+    var target = parseInt(el.getAttribute('data-count'), 10) || 0;
+    var steps = 30;
+    var inc = target / steps;
+    var i = 0;
+    var timer = setInterval(function(){
+      i++;
+      var current = Math.min(target, Math.round(inc * i));
+      el.textContent = current;
+      if (i >= steps || current >= target) {
+        el.textContent = target;
+        clearInterval(timer);
+      }
+    }, 30);
+  }
+
+  var revealObserver = null;
+  function observeReveal(){
+    if (!('IntersectionObserver' in window)) {
+      var els = document.querySelectorAll('.reveal-on-scroll');
+      for (var k = 0; k < els.length; k++) els[k].classList.add('revealed');
+      return;
+    }
+    if (!revealObserver) {
+      revealObserver = new IntersectionObserver(function(entries){
+        entries.forEach(function(entry){
+          if (entry.isIntersecting) {
+            entry.target.classList.add('revealed');
+            revealObserver.unobserve(entry.target);
+          }
+        });
+      }, { threshold: 0.12 });
+    }
+    var pending = document.querySelectorAll('.reveal-on-scroll:not(.revealed)');
+    for (var j = 0; j < pending.length; j++) revealObserver.observe(pending[j]);
+  }
+
+  function buildMonthOptions(){
+    var select = document.getElementById('statsMonthSelect');
+    if (!select) return;
+    var all = readContent();
+    var seen = {};
+    var keys = [];
+    all.forEach(function(item){
+      if (item && item.date && item.date.length >= 7) {
+        var k = item.date.slice(0, 7);
+        if (!seen[k]) { seen[k] = true; keys.push(k); }
+      }
+    });
+    var defaultKey = prevMonthKey();
+    if (!seen[defaultKey]) keys.push(defaultKey);
+    keys.sort().reverse();
+    select.innerHTML = keys.map(function(k){
+      return '<option value="' + k + '">' + monthLabel(k) + '</option>';
+    }).join('');
+    select.value = defaultKey;
+  }
+
+  function refreshStats(){
+    var select = document.getElementById('statsMonthSelect');
+    var key = select && select.value ? select.value : prevMonthKey();
+    render(key);
+  }
+
+  var boardBtn = document.getElementById('viewBoardBtn');
+  var statsBtn = document.getElementById('viewStatsBtn');
+  var boardView = document.getElementById('plannerBoardView');
+  var statsView = document.getElementById('plannerStatsView');
+
+  function showBoardView(){
+    if (boardBtn) boardBtn.classList.add('active');
+    if (statsBtn) statsBtn.classList.remove('active');
+    if (boardView) boardView.classList.remove('hidden-section');
+    if (statsView) statsView.classList.add('hidden-section');
+  }
+
+  function showStatsView(){
+    if (statsBtn) statsBtn.classList.add('active');
+    if (boardBtn) boardBtn.classList.remove('active');
+    if (statsView) statsView.classList.remove('hidden-section');
+    if (boardView) boardView.classList.add('hidden-section');
+    buildMonthOptions();
+    refreshStats();
+  }
+
+  if (boardBtn) boardBtn.addEventListener('click', showBoardView);
+  if (statsBtn) statsBtn.addEventListener('click', showStatsView);
+  var monthSelect = document.getElementById('statsMonthSelect');
+  if (monthSelect) monthSelect.addEventListener('change', refreshStats);
+
+  window.__vinhShowStatsView = showStatsView;
+
+  // -------------------- Trang cover đầu/cuối tháng --------------------
+  // Hiện từ ngày 28 tháng trước đến ngày 5 tháng sau, mỗi phiên trình
+  // duyệt (tab) chỉ hiện một lần để không làm phiền khi người dùng
+  // tải lại trang nhiều lần trong lúc làm việc.
+  function isInCoverWindow(){
+    var day = new Date().getDate();
+    return day >= 28 || day <= 5;
+  }
+
+  function initCover(){
+    if (!isInCoverWindow()) return;
+    if (sessionStorage.getItem('vps_stats_cover_shown')) return;
+
+    var overlay = document.getElementById('statsCoverOverlay');
+    var quick = document.getElementById('coverQuickStats');
+    if (!overlay) return;
+
+    var stats = computeStats(prevMonthKey());
+    if (quick) {
+      quick.innerHTML =
+        '<div class="cover-quick-item"><div class="cover-quick-num">' + stats.totalPosted + '</div><div class="cover-quick-label">bài đăng</div></div>' +
+        '<div class="cover-quick-item"><div class="cover-quick-num">' + Object.keys(stats.byChannel).length + '</div><div class="cover-quick-label">kênh</div></div>' +
+        '<div class="cover-quick-item"><div class="cover-quick-num">' + Object.keys(stats.byBrand).length + '</div><div class="cover-quick-label">thương hiệu</div></div>' +
+        '<div class="cover-quick-item"><div class="cover-quick-num">' + Object.keys(stats.byAssignee).length + '</div><div class="cover-quick-label">người đăng</div></div>';
+    }
+
+    overlay.classList.add('open');
+    sessionStorage.setItem('vps_stats_cover_shown', '1');
+
+    setTimeout(function(){
+      overlay.classList.add('closing');
+      setTimeout(function(){
+        overlay.classList.remove('open');
+        overlay.classList.remove('closing');
+        if (window.__vinhShowStatsView) window.__vinhShowStatsView();
+      }, 480);
+    }, 5000);
+  }
+
+  setTimeout(initCover, 700);
 })();
 </script>
 
