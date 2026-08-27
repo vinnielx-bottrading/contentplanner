@@ -2113,6 +2113,10 @@ _0x109761["addEventListener"]("click",()=>{if(!_0xacfd17)return;const _0x115d98=
     return monthKeyOf(d);
   }
 
+  function currentMonthKey(){
+    return monthKeyOf(new Date());
+  }
+
   function monthLabel(key){
     var parts = key.split('-');
     return 'Tháng ' + parseInt(parts[1], 10) + '/' + parts[0];
@@ -2324,12 +2328,23 @@ _0x109761["addEventListener"]("click",()=>{if(!_0xacfd17)return;const _0x115d98=
     if (statsView) statsView.classList.add('hidden-section');
   }
 
-  function showStatsView(){
+  function showStatsView(forceMonthKey){
     if (statsBtn) statsBtn.classList.add('active');
     if (boardBtn) boardBtn.classList.remove('active');
     if (statsView) statsView.classList.remove('hidden-section');
     if (boardView) boardView.classList.add('hidden-section');
     buildMonthOptions();
+    var select = document.getElementById('statsMonthSelect');
+    if (forceMonthKey && select) {
+      var hasOption = Array.prototype.some.call(select.options, function(o){ return o.value === forceMonthKey; });
+      if (!hasOption) {
+        var opt = document.createElement('option');
+        opt.value = forceMonthKey;
+        opt.textContent = monthLabel(forceMonthKey);
+        select.insertBefore(opt, select.firstChild);
+      }
+      select.value = forceMonthKey;
+    }
     refreshStats();
   }
 
@@ -2347,7 +2362,7 @@ _0x109761["addEventListener"]("click",()=>{if(!_0xacfd17)return;const _0x115d98=
     // Cover sẽ hiện nếu ngày hiện tại (theo lịch máy tính) >= START_DAY
     // (tính từ cuối tháng) HOẶC <= END_DAY (tính từ đầu tháng kế tiếp).
     // Mặc định: từ ngày 28 tháng trước đến ngày 5 tháng sau.
-    START_DAY: 27,   // đổi thành 25 nếu muốn hiện sớm hơn (từ ngày 25), v.v.
+    START_DAY: 28,   // đổi thành 25 nếu muốn hiện sớm hơn (từ ngày 25), v.v.
     END_DAY: 5,      // đổi thành 10 nếu muốn hiện tới ngày 10 tháng sau, v.v.
 
     // Số giây cover hiển thị trước khi tự biến mất và chuyển vào tab Thống kê.
@@ -2381,7 +2396,7 @@ _0x109761["addEventListener"]("click",()=>{if(!_0xacfd17)return;const _0x115d98=
     var quick = document.getElementById('coverQuickStats');
     if (!overlay) return;
 
-    var stats = computeStats(prevMonthKey());
+    var stats = computeStats(currentMonthKey());
     if (quick) {
       quick.innerHTML =
         '<div class="cover-quick-item"><div class="cover-quick-num">' + stats.totalPosted + '</div><div class="cover-quick-label">bài đăng</div></div>' +
@@ -2391,14 +2406,14 @@ _0x109761["addEventListener"]("click",()=>{if(!_0xacfd17)return;const _0x115d98=
     }
 
     overlay.classList.add('open');
-    if (COVER_CONFIG.SHOW_ONCE_PER_SESSION) sessionStorage.setItem(COVER_SESSION_KEY, '1');
+    if (COVER_CONFIG.SHOW_ONCE_PER_SESSION: false) sessionStorage.setItem(COVER_SESSION_KEY, '1');
 
     setTimeout(function(){
       overlay.classList.add('closing');
       setTimeout(function(){
         overlay.classList.remove('open');
         overlay.classList.remove('closing');
-        if (window.__vinhShowStatsView) window.__vinhShowStatsView();
+        if (window.__vinhShowStatsView) window.__vinhShowStatsView(currentMonthKey());
       }, 480);
     }, COVER_CONFIG.DISPLAY_SECONDS * 1000);
   }
