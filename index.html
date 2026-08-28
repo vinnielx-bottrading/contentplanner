@@ -1040,6 +1040,23 @@
     _0x2a7762 = Object['keys'](_0x4637b3),
     _0xb5b91a = ["Facebook", "TikTok", "Instagram", "Threads", "YouTube", "Website", 'Zalo'],
     _0x2b97dc = ['Tuần\x201', 'Tuần\x202', 'Tuần\x203', "Tuần 4", "Tuần 5"];
+  // ==========================================================================
+  // 🩹 TỰ ĐỘNG DỌN CACHE CŨ: mỗi khi có bản vá quan trọng làm thay đổi cấu trúc
+  // dữ liệu cục bộ (ví dụ: loại bỏ cơ chế "dữ liệu mẫu" từng gây nhân bản content
+  // liên tục), tăng CODE_VERSION lên. Bất kỳ thiết bị nào mở file này lần đầu
+  // sau bản vá — dù đã từng lưu/copy file ở đâu, bao nhiêu bản — sẽ tự động
+  // phát hiện phiên bản cũ và XÓA SẠCH cache content cục bộ, buộc tải lại
+  // hoàn toàn từ Supabase (nguồn dữ liệu chính thức duy nhất). Nhờ vậy không
+  // cần yêu cầu người dùng vào Console xóa thủ công trên từng máy/điện thoại.
+  const _0xCODE_VERSION = 'v2-no-seed-fallback-2026-08-28';
+  try {
+    if (localStorage.getItem('content_planner_code_version') !== _0xCODE_VERSION) {
+      localStorage.removeItem(_0x1d8095);
+      localStorage.setItem('content_planner_code_version', _0xCODE_VERSION);
+      console.warn('[Kafka X] Phát hiện phiên bản code mới — đã tự động xóa cache content cục bộ để đồng bộ sạch lại từ Supabase.');
+    }
+  } catch (_0xVersionCheckErr) {}
+
   let _0x2fc8d0 = _0x379128();
 
   function _0x379128() {
