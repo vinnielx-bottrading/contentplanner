@@ -1157,10 +1157,7 @@
       alert("Bạn cần đăng nhập để chỉnh sửa content.");
       return ![];
     }
-    if (_0xCurrentUser.role === 'admin') return !![];
-    if (_0x2f24aa && _0x2f24aa === _0xCurrentUser.displayName) return !![];
-    alert("Bạn chỉ có thể chỉnh sửa content do chính mình đứng tên (" + (_0x2f24aa || '(chưa gán người phụ trách)') + ").");
-    return ![];
+    return !![];
   }
 
   function _0x1d1416() {
@@ -1820,14 +1817,20 @@
     // ---- Khóa trường "Người phụ trách" / "Trạng thái" trên giao diện nếu
     // người đăng nhập là nhân viên (không phải admin) — giúp họ thấy rõ giới
     // hạn thay vì chỉ báo lỗi lúc bấm Lưu. Quyền thật sự vẫn được kiểm tra lại
-    // ở submit handler và ở tầng Supabase (RLS + trigger).
+    // ở submit handler và ở tầng Supabase (RLS + trigger). Nhân viên được sửa
+    // nội dung của bất kỳ ai, nhưng KHÔNG được đổi người đứng tên phụ trách.
     (function() {
       var fAssigneeEl = document.getElementById('fAssignee');
       var fStatusEl = document.getElementById('fStatus');
       var isStaff = _0xCurrentUser && _0xCurrentUser.role !== 'admin';
       if (fAssigneeEl) {
         fAssigneeEl.readOnly = !!isStaff;
-        if (isStaff) fAssigneeEl.value = _0xCurrentUser.displayName || '';
+        // Chỉ tự điền tên khi THÊM MỚI (_0x56c26c falsy). Khi SỬA bài có sẵn
+        // của người khác, giữ nguyên tên người phụ trách gốc đã được nạp sẵn
+        // ở trên — tuyệt đối không ghi đè thành tên người đang sửa.
+        if (isStaff && !_0x56c26c) {
+          fAssigneeEl.value = _0xCurrentUser.displayName || '';
+        }
       }
       if (fStatusEl) fStatusEl.disabled = !!isStaff;
     })();
@@ -1885,16 +1888,18 @@
     // ---- Luồng trạng thái & feedback (cập nhật bởi Claude) ----
     var __status = _0x2cf5b6["status"];
     var __isAdminUser = !!(_0xCurrentUser && _0xCurrentUser.role === 'admin');
-    var __isOwnerUser = !!(_0xCurrentUser && _0xCurrentUser.displayName === _0x2cf5b6['assignee']);
+    var __isLoggedIn = !!_0xCurrentUser;
     var __reviewBtn = document.getElementById('viewReviewBtn');
     var __reqChangesBtn = document.getElementById('viewRequestChangesBtn');
-    // Đổi trạng thái (Cần xem xét / Yêu cầu chỉnh sửa / Phê duyệt): chỉ admin.
-    if (__reviewBtn) __reviewBtn.style.display = ((__isAdminUser || __isOwnerUser) && __status === 'Đang thực hiện') ? 'inline-flex' : 'none';
+    // Gửi duyệt (Đang thực hiện -> Đang xem xét): bất kỳ ai đã đăng nhập, trên
+    // mọi bài nháp (không giới hạn theo chủ bài).
+    if (__reviewBtn) __reviewBtn.style.display = (__isLoggedIn && __status === 'Đang thực hiện') ? 'inline-flex' : 'none';
+    // Yêu cầu chỉnh sửa / Phê duyệt: vẫn chỉ admin.
     if (__reqChangesBtn) __reqChangesBtn.style.display = (__isAdminUser && __status === 'Đang xem xét') ? 'inline-flex' : 'none';
     _0x421ed2["style"]["display"] = (__isAdminUser && __status === 'Đang xem xét') ? 'inline-flex' : 'none';
     var __locked = (__status === 'Xuất bản');
-    // Sửa: admin sửa mọi bài (chưa xuất bản); nhân viên chỉ sửa bài của chính mình.
-    _0x313786.style.display = (!__locked && (__isAdminUser || __isOwnerUser)) ? 'inline-flex' : 'none';
+    // Sửa: bất kỳ ai đã đăng nhập đều sửa được mọi bài (chưa xuất bản).
+    _0x313786.style.display = (!__locked && __isLoggedIn) ? 'inline-flex' : 'none';
     // Xóa: chỉ admin.
     _0x109761.style.display = (!__locked && __isAdminUser) ? 'inline-flex' : 'none';
     if (_0x2cf5b6.feedback) {
@@ -1931,14 +1936,11 @@
           return x['id'] === _0xacfd17;
         });
         if (!item) return;
-        // Cho phép: admin (mọi bài) HOẶC chính nhân viên đứng tên bài này —
-        // đây là hành động "gửi duyệt" bình thường, không phải phê duyệt.
+        // Bất kỳ ai đã đăng nhập đều gửi duyệt được mọi bài nháp (không giới
+        // hạn theo chủ bài) — đây là hành động "gửi duyệt" bình thường, không
+        // phải phê duyệt.
         if (!_0xCurrentUser) {
           alert("Bạn cần đăng nhập để gửi bài đi duyệt.");
-          return;
-        }
-        if (_0xCurrentUser.role !== 'admin' && item['assignee'] !== _0xCurrentUser.displayName) {
-          alert("Bạn chỉ có thể gửi duyệt bài do chính mình đứng tên.");
           return;
         }
         item['status'] = 'Đang xem xét';
@@ -1991,21 +1993,19 @@
         return;
       }
       const __existingItem = _0x73fd12pre ? _0x2fc8d0.find(x => x['id'] === _0x73fd12pre) : null;
-      if (_0x73fd12pre) {
-        // Đang SỬA: phải là admin hoặc chính người đứng tên bài
-        if (_0xCurrentUser.role !== 'admin' && (!__existingItem || __existingItem['assignee'] !== _0xCurrentUser.displayName)) {
-          alert("Bạn chỉ có thể chỉnh sửa content do chính mình đứng tên.");
-          return;
-        }
-      }
+      // Nhân viên được sửa nội dung của BẤT KỲ ai (không còn giới hạn theo chủ
+      // bài) — chỉ cần đã đăng nhập là đủ để lưu. Xóa/Duyệt vẫn tách riêng,
+      // kiểm tra ở các hàm/nút tương ứng.
       let __submittedAssignee = document['getElementById']("fAssignee")["value"]["trim"]();
       let __submittedStatus = document["getElementById"]("fStatus")["value"];
       if (_0xCurrentUser.role !== 'admin') {
-        // Nhân viên: khóa "Người phụ trách" về đúng tên tài khoản đang đăng nhập
-        // (tránh gán nhầm cho người khác khiến chính mình mất quyền sửa sau này).
-        __submittedAssignee = _0xCurrentUser.displayName;
-        // Nhân viên không được tự đổi trạng thái — giữ nguyên trạng thái cũ khi
-        // sửa bài, hoặc mặc định trạng thái khởi tạo khi thêm bài mới.
+        // Nhân viên KHÔNG được đổi người phụ trách: khi sửa bài có sẵn, giữ
+        // nguyên tên gốc (dù đó là người khác); khi thêm bài mới, tự gán tên
+        // của chính người đang đăng nhập.
+        __submittedAssignee = __existingItem ? __existingItem['assignee'] : _0xCurrentUser.displayName;
+        // Nhân viên không được tự đổi trạng thái qua form này — giữ nguyên
+        // trạng thái cũ khi sửa bài, hoặc mặc định trạng thái khởi tạo khi
+        // thêm bài mới. (Gửi duyệt vẫn thực hiện qua nút "Cần xem xét" riêng.)
         __submittedStatus = __existingItem ? __existingItem['status'] : (document["getElementById"]("fStatus")["value"] || _0x204bfd[0x0]);
         if (!_0x204bfd.includes(__submittedStatus) || ['Chờ xuất bản', 'Xuất bản'].includes(__submittedStatus)) {
           __submittedStatus = _0x204bfd[0x0];
@@ -2020,6 +2020,27 @@
       const _0x1766fa = _0x36f0ef(document["getElementById"]("fDeadline")["value"]);
       if (_0x1766fa === null) {
         alert('Deadline\x20không\x20hợp\x20lệ.\x20Vui\x20lòng\x20nhập\x20theo\x20định\x20dạng\x20dd/mm/yyyy\x20(VD:\x2025/12/2026).');
+        return;
+      }
+      // ---- Các trường bắt buộc: Thương hiệu, Định dạng, Pillar, Sản phẩm,
+      // CTA, và ít nhất 1 Kênh đăng — không cho lưu nếu còn thiếu. ----
+      const __requiredFieldChecks = [
+        ['fBrand', 'Thương hiệu'],
+        ['fFormat', 'Định dạng nội dung'],
+        ['fPillar', 'Pillar'],
+        ['fProduct', 'Sản phẩm'],
+        ['fCta', 'CTA']
+      ];
+      for (const [__fid, __flabel] of __requiredFieldChecks) {
+        const __fel = document.getElementById(__fid);
+        if (!__fel || !__fel.value.trim()) {
+          alert('Vui lòng chọn/nhập "' + __flabel + '" trước khi lưu content.');
+          if (__fel) __fel.focus();
+          return;
+        }
+      }
+      if (_0x3b143d.length === 0) {
+        alert('Vui lòng chọn ít nhất 1 Kênh đăng trước khi lưu content.');
         return;
       }
       const _0x5b1583 = {
@@ -3003,9 +3024,10 @@
     if (autoWeek) weekInput.value = autoWeek;
   });
 
-  // Đánh dấu (*) cho nhãn "Ngày đăng" để người dùng biết đây là trường bắt buộc.
+  // Đánh dấu (*) cho nhãn các trường bắt buộc, để người dùng biết ngay từ đầu.
+  var __requiredLabels = ['Ngày đăng', 'Thương hiệu', 'Định dạng nội dung', 'Pillar', 'Sản phẩm', 'CTA', 'Kênh đăng'];
   document.querySelectorAll('label').forEach(function(label){
-    if (label.textContent.trim() === 'Ngày đăng' && !label.querySelector('.required-star')) {
+    if (__requiredLabels.indexOf(label.textContent.trim()) !== -1 && !label.querySelector('.required-star')) {
       var star = document.createElement('span');
       star.className = 'required-star';
       star.style.color = '#d64545';
