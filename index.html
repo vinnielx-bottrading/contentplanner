@@ -717,7 +717,7 @@
 
 <header>
   <h1><span class="dot"></span> <span class="kafkax-brand">KAFKA X</span></h1>
-  <div class="standalone-page-label" style="font-size:13px;color:var(--muted,#6b7280);font-weight:600;">📋 Content Planner</div>
+  <button type="button" id="authAreaBtn" class="auth-login-btn">🔓 Đăng nhập</button>
   <div class="toolbar">
     <span class="sync-status" id="syncStatus" title="Trạng thái đồng bộ Supabase">⚪ Đang kết nối...</span>
   </div>
@@ -725,37 +725,21 @@
 
 <main>
   <section id="plannerSection">
-    <div class="planner-view-switch" id="plannerViewSwitch">
-      <button type="button" class="view-switch-btn active" id="viewBoardBtn">📋 Bảng nội dung</button>
-      <button type="button" class="view-switch-btn" id="viewStatsBtn">📊 Thống kê tháng</button>
-      <button type="button" class="stats-toggle-btn" id="statsToggleBtn" title="Ẩn/hiện tab Thống kê tháng">⚙️ Ẩn thống kê</button>
+    <div class="sub-toolbar">
+      <input type="text" id="searchBox" placeholder="Tìm nội dung...">
+      <select id="filterMonth"><option value="">Tất cả tháng</option></select>
+      <select id="filterStatus"><option value="">Tất cả Trạng thái</option></select>
+      <select id="filterBrand"><option value="">Tất cả Thương hiệu</option></select>
+      <select id="filterPillar"><option value="">Tất cả Pillar</option></select>
+      <select id="filterChannel"><option value="">Tất cả Kênh</option></select>
+      <button class="btn-ghost" id="exportBtn">⬇ Export JSON</button>
+      <button class="btn-ghost" id="exportExcelBtn">⬇ Export Excel</button>
+      <button class="btn-ghost" id="importBtn">⬆ Import JSON</button>
+      <input type="file" id="importFile" accept="application/json">
+      <button class="btn-primary" id="addBtn">+ Thêm Content</button>
     </div>
-
-    <div id="plannerBoardView">
-      <div class="sub-toolbar">
-        <input type="text" id="searchBox" placeholder="Tìm nội dung...">
-        <select id="filterMonth"><option value="">Tất cả tháng</option></select>
-        <select id="filterStatus"><option value="">Tất cả Trạng thái</option></select>
-        <select id="filterBrand"><option value="">Tất cả Thương hiệu</option></select>
-        <select id="filterPillar"><option value="">Tất cả Pillar</option></select>
-        <select id="filterChannel"><option value="">Tất cả Kênh</option></select>
-        <button class="btn-ghost" id="exportBtn">⬇ Export JSON</button>
-        <button class="btn-ghost" id="exportExcelBtn">⬇ Export Excel</button>
-        <button class="btn-ghost" id="importBtn">⬆ Import JSON</button>
-        <input type="file" id="importFile" accept="application/json">
-        <button class="btn-primary" id="addBtn">+ Thêm Content</button>
-      </div>
-      <div class="grid-count" id="gridCount"></div>
-      <div id="board"></div>
-    </div>
-
-    <div id="plannerStatsView" class="hidden-section">
-      <div class="stats-toolbar">
-        <span class="stats-toolbar-label">🗓️ Xem thống kê của:</span>
-        <select id="statsMonthSelect"></select>
-      </div>
-      <div id="statsContent"></div>
-    </div>
+    <div class="grid-count" id="gridCount"></div>
+    <div id="board"></div>
   </section>
 
 </main>
@@ -862,6 +846,30 @@
   </div>
 </div>
 
+<div class="overlay" id="authOverlay">
+  <div class="modal auth-modal">
+    <button type="button" class="modal-close-x" id="authModalCloseX" title="Đóng">✕</button>
+    <h2>🔐 Đăng nhập</h2>
+    <form id="authForm">
+      <div class="field">
+        <label>Email</label>
+        <input type="email" id="authEmail" required autocomplete="username" placeholder="ban@vpsglobal.com">
+      </div>
+      <div class="field">
+        <label>Mật khẩu</label>
+        <input type="password" id="authPassword" required autocomplete="current-password">
+      </div>
+      <div id="authError" class="auth-error"></div>
+      <div class="modal-actions">
+        <div class="right">
+          <button type="button" class="btn-ghost" id="authCancelBtn">Hủy</button>
+          <button type="submit" class="btn-primary" id="authSubmitBtn">Đăng nhập</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
 <div class="overlay" id="viewOverlay">
   <div class="modal" id="viewModal">
     <button type="button" class="modal-close-x" id="viewModalCloseX" title="Đóng">✕</button>
@@ -891,6 +899,13 @@
     },
     _0x313817 = _0x51cd58["url"] && _0x51cd58["anonKey"] && _0x51cd58["url"]["indexOf"]("PASTE_") !== 0x0;
   let _0x2405e1 = null;
+  let _0xCurrentUser = null; // { id, email, displayName, role } khi đã đăng nhập, null khi chưa
+  window.__vinh_setCurrentUser = function(_0xUser) {
+    _0xCurrentUser = _0xUser;
+    try {
+      _0x20ff35();
+    } catch (_0xIgnore) {}
+  };
     const _0x50a568 = {
       'Đang thực hiện': {
         'bg': "#a67c1e",
@@ -1136,36 +1151,55 @@
   const _0x4b1ea4 = "vinhdeptrai",
     _0x332656 = '123VPS';
 
-  function _0x5ed14e() {
-    const _0x429a84 = _0x12fda4,
-      _0x4a5c14 = prompt("Nhập mật khẩu để chỉnh sửa content:");
-    if (_0x4a5c14 === null) return ![];
-    if (_0x4a5c14 !== _0x332656) return alert("Sai mật khẩu. Không thể chỉnh sửa."), ![];
-    return !![];
+  function _0x5ed14e(_0x2f24aa) {
+    const _0x429a84 = _0x12fda4;
+    if (!_0xCurrentUser) {
+      alert("Bạn cần đăng nhập để chỉnh sửa content.");
+      return ![];
+    }
+    if (_0xCurrentUser.role === 'admin') return !![];
+    if (_0x2f24aa && _0x2f24aa === _0xCurrentUser.displayName) return !![];
+    alert("Bạn chỉ có thể chỉnh sửa content do chính mình đứng tên (" + (_0x2f24aa || '(chưa gán người phụ trách)') + ").");
+    return ![];
   }
 
   function _0x1d1416() {
-    const _0x13a6eb = _0x12fda4,
-      _0x1508b1 = prompt("Nhập mật khẩu để phê duyệt content:");
-    if (_0x1508b1 === null) return ![];
-    if (_0x1508b1 !== _0x4b1ea4) return alert("Sai mật khẩu. Không thể phê duyệt."), ![];
+    const _0x13a6eb = _0x12fda4;
+    if (!_0xCurrentUser) {
+      alert("Bạn cần đăng nhập để thực hiện thao tác này.");
+      return ![];
+    }
+    if (_0xCurrentUser.role !== 'admin') {
+      alert("Chỉ admin mới có quyền phê duyệt / thay đổi trạng thái content.");
+      return ![];
+    }
     return !![];
   }
 
   function _0x4ee201(_0x1f82d2) {
     const _0xcf5700 = _0x12fda4;
     if (!confirm(_0x1f82d2)) return ![];
-    const _0x4800d7 = prompt("Nhập mật khẩu để xác nhận xóa:");
-    if (_0x4800d7 === null) return ![];
-    if (_0x4800d7 !== _0x4b1ea4) return alert("Sai mật khẩu. Không thể xóa."), ![];
+    if (!_0xCurrentUser) {
+      alert("Bạn cần đăng nhập để xóa content.");
+      return ![];
+    }
+    if (_0xCurrentUser.role !== 'admin') {
+      alert("Chỉ admin mới có quyền xóa content.");
+      return ![];
+    }
     return !![];
   }
 
   function _0x9bd0f1(_0xf52f7e) {
-    const _0x2722c7 = _0x12fda4,
-      _0x4279ee = prompt(_0xf52f7e || "Nhập mật khẩu để xác nhận:");
-    if (_0x4279ee === null) return ![];
-    if (_0x4279ee !== _0x4b1ea4) return alert("Sai mật khẩu. Không thể thực hiện thao tác này."), ![];
+    const _0x2722c7 = _0x12fda4;
+    if (!_0xCurrentUser) {
+      alert("Bạn cần đăng nhập để thực hiện thao tác này.");
+      return ![];
+    }
+    if (_0xCurrentUser.role !== 'admin') {
+      alert("Chỉ admin mới có quyền thực hiện thao tác này.");
+      return ![];
+    }
     return !![];
   }
   const _0x2695c1 = document["getElementById"]('syncStatus');
@@ -1783,6 +1817,20 @@
         blogBody.innerHTML = '';
       }
     })();
+    // ---- Khóa trường "Người phụ trách" / "Trạng thái" trên giao diện nếu
+    // người đăng nhập là nhân viên (không phải admin) — giúp họ thấy rõ giới
+    // hạn thay vì chỉ báo lỗi lúc bấm Lưu. Quyền thật sự vẫn được kiểm tra lại
+    // ở submit handler và ở tầng Supabase (RLS + trigger).
+    (function() {
+      var fAssigneeEl = document.getElementById('fAssignee');
+      var fStatusEl = document.getElementById('fStatus');
+      var isStaff = _0xCurrentUser && _0xCurrentUser.role !== 'admin';
+      if (fAssigneeEl) {
+        fAssigneeEl.readOnly = !!isStaff;
+        if (isStaff) fAssigneeEl.value = _0xCurrentUser.displayName || '';
+      }
+      if (fStatusEl) fStatusEl.disabled = !!isStaff;
+    })();
     _0x159286["classList"]['add']("open");
   }
 
@@ -1836,14 +1884,19 @@
     }) + "\n      </div>\n    ", _0x3c5417['classList']["add"]("open");
     // ---- Luồng trạng thái & feedback (cập nhật bởi Claude) ----
     var __status = _0x2cf5b6["status"];
+    var __isAdminUser = !!(_0xCurrentUser && _0xCurrentUser.role === 'admin');
+    var __isOwnerUser = !!(_0xCurrentUser && _0xCurrentUser.displayName === _0x2cf5b6['assignee']);
     var __reviewBtn = document.getElementById('viewReviewBtn');
     var __reqChangesBtn = document.getElementById('viewRequestChangesBtn');
-    if (__reviewBtn) __reviewBtn.style.display = (__status === 'Đang thực hiện') ? 'inline-flex' : 'none';
-    if (__reqChangesBtn) __reqChangesBtn.style.display = (__status === 'Đang xem xét') ? 'inline-flex' : 'none';
-    _0x421ed2["style"]["display"] = (__status === 'Đang xem xét') ? 'inline-flex' : 'none';
+    // Đổi trạng thái (Cần xem xét / Yêu cầu chỉnh sửa / Phê duyệt): chỉ admin.
+    if (__reviewBtn) __reviewBtn.style.display = ((__isAdminUser || __isOwnerUser) && __status === 'Đang thực hiện') ? 'inline-flex' : 'none';
+    if (__reqChangesBtn) __reqChangesBtn.style.display = (__isAdminUser && __status === 'Đang xem xét') ? 'inline-flex' : 'none';
+    _0x421ed2["style"]["display"] = (__isAdminUser && __status === 'Đang xem xét') ? 'inline-flex' : 'none';
     var __locked = (__status === 'Xuất bản');
-    _0x313786.style.display = __locked ? 'none' : 'inline-flex';
-    _0x109761.style.display = __locked ? 'none' : 'inline-flex';
+    // Sửa: admin sửa mọi bài (chưa xuất bản); nhân viên chỉ sửa bài của chính mình.
+    _0x313786.style.display = (!__locked && (__isAdminUser || __isOwnerUser)) ? 'inline-flex' : 'none';
+    // Xóa: chỉ admin.
+    _0x109761.style.display = (!__locked && __isAdminUser) ? 'inline-flex' : 'none';
     if (_0x2cf5b6.feedback) {
       _0x1e5db4.insertAdjacentHTML('afterbegin', '<div class="feedback-banner"><b>⚠ Admin yêu cầu chỉnh sửa:</b>' + _0x5cc9d3(_0x2cf5b6.feedback) + (_0x2cf5b6.feedbackAt ? '<span class="fb-time">Lúc: ' + _0x5cc9d3(_0x2cf5b6.feedbackAt) + '</span>' : '') + '</div>');
     }
@@ -1855,7 +1908,8 @@
   }
   document["getElementById"]("viewCloseBtn")["addEventListener"]("click", _0x5269c2), document['getElementById']("viewModalCloseX")["addEventListener"]("click", _0x5269c2), _0x313786["addEventListener"]("click", () => {
       if (!_0xacfd17) return;
-      if (!_0x5ed14e()) return;
+      const __editTargetItem = _0x2fc8d0.find(x => x['id'] === _0xacfd17);
+      if (!_0x5ed14e(__editTargetItem && __editTargetItem['assignee'])) return;
       const _0x203a40 = _0xacfd17;
       _0x5269c2(), _0x14af65(_0x203a40);
     }), _0x421ed2["addEventListener"]('click', async () => {
@@ -1877,6 +1931,16 @@
           return x['id'] === _0xacfd17;
         });
         if (!item) return;
+        // Cho phép: admin (mọi bài) HOẶC chính nhân viên đứng tên bài này —
+        // đây là hành động "gửi duyệt" bình thường, không phải phê duyệt.
+        if (!_0xCurrentUser) {
+          alert("Bạn cần đăng nhập để gửi bài đi duyệt.");
+          return;
+        }
+        if (_0xCurrentUser.role !== 'admin' && item['assignee'] !== _0xCurrentUser.displayName) {
+          alert("Bạn chỉ có thể gửi duyệt bài do chính mình đứng tên.");
+          return;
+        }
         item['status'] = 'Đang xem xét';
         _0x20ff35();
         _0xaead22(_0xacfd17);
@@ -1908,9 +1972,45 @@
       if (!_0xacfd17) return;
       const _0x115d98 = _0xacfd17;
       _0x5269c2(), _0x5135da(_0x115d98);
-    }), document['getElementById']("addBtn")["addEventListener"]("click", () => _0x14af65(null)), document['getElementById']("cancelBtn")["addEventListener"]("click", _0x2cd3f2), document["getElementById"]("modalCloseX")['addEventListener']('click', _0x2cd3f2), _0x4453d4["addEventListener"]("submit", async _0x43ac48 => {
+    }), document['getElementById']("addBtn")["addEventListener"]("click", () => {
+      if (!_0xCurrentUser) {
+        alert("Bạn cần đăng nhập để thêm content.");
+        return;
+      }
+      _0x14af65(null);
+    }), document['getElementById']("cancelBtn")["addEventListener"]("click", _0x2cd3f2), document["getElementById"]("modalCloseX")['addEventListener']('click', _0x2cd3f2), _0x4453d4["addEventListener"]("submit", async _0x43ac48 => {
       const _0x37a6f9 = _0x12fda4;
       _0x43ac48["preventDefault"]();
+      const __vinh_body = document.getElementById('fBody');
+      const __vinh_bodyHtml = __vinh_body ? __vinh_body.innerHTML : '';
+      const __vinh_excerpt = __vinh_body ? __vinh_body.innerText.trim().replace(/\s+/g, ' ').slice(0, 180) : '';
+      const _0x73fd12pre = document["getElementById"]("cardId")["value"];
+      // ---- Kiểm tra quyền trước khi lưu (khớp với RLS + trigger phía Supabase) ----
+      if (!_0xCurrentUser) {
+        alert("Bạn cần đăng nhập để lưu content.");
+        return;
+      }
+      const __existingItem = _0x73fd12pre ? _0x2fc8d0.find(x => x['id'] === _0x73fd12pre) : null;
+      if (_0x73fd12pre) {
+        // Đang SỬA: phải là admin hoặc chính người đứng tên bài
+        if (_0xCurrentUser.role !== 'admin' && (!__existingItem || __existingItem['assignee'] !== _0xCurrentUser.displayName)) {
+          alert("Bạn chỉ có thể chỉnh sửa content do chính mình đứng tên.");
+          return;
+        }
+      }
+      let __submittedAssignee = document['getElementById']("fAssignee")["value"]["trim"]();
+      let __submittedStatus = document["getElementById"]("fStatus")["value"];
+      if (_0xCurrentUser.role !== 'admin') {
+        // Nhân viên: khóa "Người phụ trách" về đúng tên tài khoản đang đăng nhập
+        // (tránh gán nhầm cho người khác khiến chính mình mất quyền sửa sau này).
+        __submittedAssignee = _0xCurrentUser.displayName;
+        // Nhân viên không được tự đổi trạng thái — giữ nguyên trạng thái cũ khi
+        // sửa bài, hoặc mặc định trạng thái khởi tạo khi thêm bài mới.
+        __submittedStatus = __existingItem ? __existingItem['status'] : (document["getElementById"]("fStatus")["value"] || _0x204bfd[0x0]);
+        if (!_0x204bfd.includes(__submittedStatus) || ['Chờ xuất bản', 'Xuất bản'].includes(__submittedStatus)) {
+          __submittedStatus = _0x204bfd[0x0];
+        }
+      }
       const _0x3b143d = [...document["querySelectorAll"]("#channelChecks input:checked")]['map'](_0x7ea971 => _0x7ea971['value']),
         _0x30f11b = _0x36f0ef(document["getElementById"]("fDate")["value"]);
       if (_0x30f11b === null) {
@@ -1922,9 +2022,6 @@
         alert('Deadline\x20không\x20hợp\x20lệ.\x20Vui\x20lòng\x20nhập\x20theo\x20định\x20dạng\x20dd/mm/yyyy\x20(VD:\x2025/12/2026).');
         return;
       }
-      const __vinh_body = document.getElementById('fBody');
-      const __vinh_bodyHtml = __vinh_body ? __vinh_body.innerHTML : '';
-      const __vinh_excerpt = __vinh_body ? __vinh_body.innerText.trim().replace(/\s+/g, ' ').slice(0, 180) : '';
       const _0x5b1583 = {
           'week': document["getElementById"]("fWeek")["value"]["trim"](),
           'date': _0x30f11b,
@@ -1933,11 +2030,11 @@
           'brand': document["getElementById"]("fBrand")["value"]['trim'](),
           'format': document['getElementById']("fFormat")["value"]["trim"](),
           'pillar': document["getElementById"]("fPillar")["value"]["trim"](),
-          'status': document["getElementById"]("fStatus")["value"],
+          'status': __submittedStatus,
           'product': document["getElementById"]("fProduct")["value"]["trim"](),
           'cta': document["getElementById"]('fCta')['value']["trim"](),
           'channels': _0x3b143d,
-          'assignee': document['getElementById']("fAssignee")["value"]["trim"](),
+          'assignee': __submittedAssignee,
           'deadline': _0x1766fa,
           'link': document["getElementById"]("fLink")["value"]["trim"](),
           'thumb': document['getElementById']('fThumb')["value"]["trim"]()
@@ -2726,589 +2823,6 @@
 })();
 </script>
 
-<style>
-  /* ===================== Thống kê Content Planner ===================== */
-  .planner-view-switch{
-    display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap; align-items:center;
-  }
-  .view-switch-btn{
-    border:1px solid #e1e5ee; background:#fff; color:#4b5568;
-    padding:8px 16px; border-radius:999px; font-size:13px; font-weight:700;
-    cursor:pointer; transition:all .18s ease;
-  }
-  .view-switch-btn:hover{ border-color:#94a3d6; }
-  .view-switch-btn.active{
-    background:linear-gradient(135deg,#6a5cf0,#a259e6);
-    color:#fff; border-color:transparent;
-    box-shadow:0 6px 16px rgba(106,92,240,.32);
-  }
-  .stats-toggle-btn{
-    margin-left:auto;
-    border:1px dashed #d5d9e6; background:transparent; color:#8b91a7;
-    padding:7px 14px; border-radius:999px; font-size:12px; font-weight:700;
-    cursor:pointer; transition:all .18s ease;
-  }
-  .stats-toggle-btn:hover{ border-color:#a5abc2; color:#5b6178; }
-
-  .stats-toolbar{
-    display:flex; align-items:center; gap:10px; margin-bottom:20px;
-  }
-  .stats-toolbar-label{ font-size:13px; font-weight:700; color:#4b5568; }
-  #statsMonthSelect{
-    border:1px solid #dfe3ee; border-radius:8px; padding:7px 12px; font-size:13px; font-weight:600;
-  }
-
-  .reveal-on-scroll{
-    opacity:0; transform:translateY(34px);
-    transition:opacity .6s cubic-bezier(.22,1,.36,1), transform .6s cubic-bezier(.22,1,.36,1);
-  }
-  .reveal-on-scroll.revealed{ opacity:1; transform:translateY(0); }
-
-  .stats-hero{
-    background:linear-gradient(135deg,#6a5cf0 0%,#a259e6 55%,#ee609c 100%);
-    border-radius:20px; padding:34px 24px; text-align:center; color:#fff;
-    box-shadow:0 16px 40px rgba(106,92,240,.28); margin-bottom:26px;
-  }
-  .stats-hero-icon{ font-size:34px; margin-bottom:6px; }
-  .stats-hero-number{
-    font-size:56px; font-weight:900; line-height:1; letter-spacing:-1px;
-    text-shadow:0 4px 14px rgba(0,0,0,.18);
-  }
-  .stats-hero-label{ font-size:15px; font-weight:700; margin-top:10px; opacity:.96; }
-  .stats-hero-sub{ font-size:12.5px; margin-top:4px; opacity:.8; }
-
-  .stats-section{ margin-bottom:28px; }
-  .stats-section-title{
-    font-size:16px; font-weight:800; color:#2c2f45; margin:0 0 14px;
-  }
-  .stats-grid{
-    display:grid; grid-template-columns:repeat(auto-fill,minmax(190px,1fr)); gap:14px;
-  }
-
-  .stat-mini-card{
-    display:flex; align-items:center; gap:12px;
-    background:#fff; border:1px solid #eceef7; border-radius:16px;
-    padding:14px; box-shadow:0 6px 18px rgba(30,34,60,.06);
-    transition:transform .18s ease, box-shadow .18s ease;
-  }
-  .stat-mini-card:hover{ transform:translateY(-3px); box-shadow:0 10px 26px rgba(30,34,60,.11); }
-  .stat-mini-icon{
-    font-size:34px; line-height:1; flex-shrink:0;
-    width:54px; height:54px; display:flex; align-items:center; justify-content:center;
-    background:linear-gradient(135deg,#eef1ff,#f7ecff); border-radius:14px;
-  }
-  .stat-mini-body{ flex:1; min-width:0; }
-  .stat-mini-label{ font-size:12.5px; font-weight:700; color:#565b74; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .stat-mini-count{ font-size:20px; font-weight:900; color:#22243a; margin-top:2px; }
-  .stat-mini-unit{ font-size:11px; font-weight:600; color:#9298ac; }
-  .stat-mini-bar{ height:6px; background:#f0f1f8; border-radius:99px; margin-top:8px; overflow:hidden; }
-  .stat-mini-bar-fill{
-    height:100%; border-radius:99px;
-    background:linear-gradient(90deg,#6a5cf0,#ee609c);
-    transition:width .8s cubic-bezier(.22,1,.36,1);
-  }
-
-  .stats-empty{
-    font-size:13px; color:#8b91a7; background:#f7f8fc; border-radius:12px; padding:18px; text-align:center;
-  }
-
-  .leaderboard{ display:flex; flex-direction:column; gap:8px; }
-  .leaderboard-row{
-    display:flex; align-items:center; gap:12px;
-    background:#fff; border:1px solid #eceef7; border-radius:14px; padding:10px 14px;
-    box-shadow:0 4px 12px rgba(30,34,60,.05);
-  }
-  .leaderboard-rank{ font-size:18px; width:26px; text-align:center; font-weight:800; color:#7a7f96; }
-  .leaderboard-avatar{
-    width:34px; height:34px; border-radius:50%; flex-shrink:0;
-    background:linear-gradient(135deg,#6a5cf0,#a259e6); color:#fff;
-    display:flex; align-items:center; justify-content:center;
-    font-size:12px; font-weight:800;
-  }
-  .leaderboard-name{ flex:1; font-size:13.5px; font-weight:700; color:#2c2f45; }
-  .leaderboard-count{
-    font-size:12px; font-weight:800; color:#6a5cf0;
-    background:#f1eeff; padding:4px 10px; border-radius:999px;
-  }
-
-  .timeline-chart{
-    display:flex; align-items:flex-end; gap:14px; height:180px;
-    background:#fff; border:1px solid #eceef7; border-radius:16px; padding:20px 24px 12px;
-    box-shadow:0 6px 18px rgba(30,34,60,.06);
-  }
-  .timeline-bar-wrap{
-    flex:1; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; height:100%;
-  }
-  .timeline-bar-count{ font-size:12px; font-weight:800; color:#2c2f45; margin-bottom:6px; }
-  .timeline-bar{
-    width:100%; max-width:38px; border-radius:8px 8px 3px 3px;
-    background:linear-gradient(180deg,#a259e6,#6a5cf0);
-    transition:height .9s cubic-bezier(.22,1,.36,1);
-  }
-  .timeline-bar-label{ font-size:11px; font-weight:700; color:#8b91a7; margin-top:8px; }
-
-  /* ------------------- Trang cover thống kê đầu tháng ------------------- */
-  .stats-cover-overlay{
-    position:fixed; inset:0; z-index:999999;
-    display:flex; align-items:center; justify-content:center;
-    background:linear-gradient(135deg,#6a5cf0 0%,#a259e6 45%,#ee609c 100%);
-    opacity:0; visibility:hidden; pointer-events:none;
-    transition:opacity .45s ease;
-  }
-  .stats-cover-overlay.open{ opacity:1; visibility:visible; pointer-events:auto; }
-  .stats-cover-overlay.closing{ opacity:0; }
-  .cover-inner{
-    text-align:center; color:#fff; padding:32px; max-width:640px;
-    transform:translateY(16px) scale(.97); opacity:0;
-    transition:transform .55s cubic-bezier(.22,1,.36,1), opacity .55s ease;
-  }
-  .stats-cover-overlay.open .cover-inner{ transform:translateY(0) scale(1); opacity:1; }
-  .cover-emoji{ font-size:52px; margin-bottom:14px; }
-  .cover-slogan{
-    font-size:clamp(22px,4vw,34px); font-weight:900; line-height:1.3;
-    text-shadow:0 4px 18px rgba(0,0,0,.22); margin:0 0 26px;
-  }
-  .cover-quick-stats{ display:flex; justify-content:center; gap:22px; flex-wrap:wrap; }
-  .cover-quick-item{
-    background:rgba(255,255,255,.16); border:1px solid rgba(255,255,255,.3);
-    border-radius:16px; padding:14px 20px; min-width:90px; backdrop-filter:blur(4px);
-  }
-  .cover-quick-num{ font-size:28px; font-weight:900; }
-  .cover-quick-label{ font-size:11.5px; font-weight:700; opacity:.9; margin-top:2px; }
-  @media (max-width:520px){
-    .cover-quick-stats{ gap:12px; }
-    .cover-quick-item{ min-width:74px; padding:10px 14px; }
-  }
-</style>
-
-<div class="stats-cover-overlay" id="statsCoverOverlay">
-  <div class="cover-inner">
-    <div class="cover-emoji">🎉</div>
-    <h1 class="cover-slogan">CÙNG XEM BẠN ĐÃ GIỎI NHIỀU NHƯ THẾ NÀO TRONG THÁNG QUA</h1>
-    <div class="cover-quick-stats" id="coverQuickStats"></div>
-  </div>
-</div>
-
-<script>
-(function(){
-  // ==========================================================================
-  // Tab "Thống kê tháng" trong Content Planner: tổng hợp hoạt động theo kênh,
-  // thương hiệu, danh mục sản phẩm, người đăng và mốc thời gian trong tháng.
-  // ==========================================================================
-
-  var CONTENT_KEY = 'content_planner_data_v1';
-  var APPROVED_STATUSES = ['Chờ xuất bản', 'Xuất bản'];
-
-  var CHANNELS = [
-    { key: 'Facebook', icon: '📘' },
-    { key: 'TikTok', icon: '🎵' },
-    { key: 'Instagram', icon: '📸' },
-    { key: 'Threads', icon: '🧵' },
-    { key: 'YouTube', icon: '▶️' },
-    { key: 'Website', icon: '🌐' },
-    { key: 'Zalo', icon: '💬' }
-  ];
-  var BRANDS = [
-    { key: 'Travel', icon: '✈️' },
-    { key: 'Communications', icon: '📣' },
-    { key: 'Gift', icon: '🎁' },
-    { key: 'Horeca', icon: '🍽️' },
-    { key: 'Wellness Retreat', icon: '🧘' },
-    { key: 'Real Estate', icon: '🏠' },
-    { key: 'Trading', icon: '📈' },
-    { key: 'Education', icon: '🎓' },
-    { key: 'Working Cafe', icon: '☕' }
-  ];
-  var PRODUCTS = [
-    { key: 'Tour', icon: '🧳' },
-    { key: 'Vé máy bay', icon: '✈️' },
-    { key: 'Visa', icon: '🛂' },
-    { key: 'Cà phê', icon: '☕' },
-    { key: 'Bất Động Sản', icon: '🏢' },
-    { key: 'Retreat', icon: '🌿' },
-    { key: 'Catering', icon: '🍽️' }
-  ];
-
-  function readContent(){
-    try {
-      var raw = localStorage.getItem(CONTENT_KEY);
-      var parsed = raw ? JSON.parse(raw) : [];
-      return Array.isArray(parsed) ? parsed : [];
-    } catch (e) { return []; }
-  }
-
-  function pad2(n){ return String(n).length < 2 ? '0' + n : String(n); }
-  function monthKeyOf(date){ return date.getFullYear() + '-' + pad2(date.getMonth() + 1); }
-
-  function prevMonthKey(){
-    var now = new Date();
-    var d = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    return monthKeyOf(d);
-  }
-
-  function currentMonthKey(){
-    return monthKeyOf(new Date());
-  }
-
-  function monthLabel(key){
-    var parts = key.split('-');
-    return 'Tháng ' + parseInt(parts[1], 10) + '/' + parts[0];
-  }
-
-  function escapeHtml(str){
-    return String(str == null ? '' : str).replace(/[&<>"']/g, function(c){
-      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
-    });
-  }
-
-  function initials(name){
-    if (!name) return '?';
-    return name.trim().split(/\s+/).map(function(w){ return w[0]; }).slice(-2).join('').toUpperCase();
-  }
-
-  function countBy(list, field, isArrayField){
-    var map = {};
-    list.forEach(function(item){
-      if (isArrayField) {
-        (item[field] || []).forEach(function(v){ map[v] = (map[v] || 0) + 1; });
-      } else if (item[field]) {
-        map[item[field]] = (map[item[field]] || 0) + 1;
-      }
-    });
-    return map;
-  }
-
-  function computeStats(mKey){
-    var all = readContent();
-    var inMonth = all.filter(function(item){ return item && item.date && item.date.indexOf(mKey) === 0; });
-    var posted = inMonth.filter(function(item){ return APPROVED_STATUSES.indexOf(item.status) !== -1; });
-
-    var weekBuckets = [0, 0, 0, 0, 0];
-    posted.forEach(function(item){
-      var day = parseInt(item.date.slice(8, 10), 10) || 1;
-      var idx = Math.min(4, Math.floor((day - 1) / 7));
-      weekBuckets[idx]++;
-    });
-
-    return {
-      totalPlanned: inMonth.length,
-      totalPosted: posted.length,
-      byChannel: countBy(posted, 'channels', true),
-      byBrand: countBy(posted, 'brand', false),
-      byProduct: countBy(posted, 'product', false),
-      byAssignee: countBy(posted, 'assignee', false),
-      weekBuckets: weekBuckets
-    };
-  }
-
-  function renderStatCard(icon, label, count, total){
-    var pct = total > 0 ? Math.round((count / total) * 100) : 0;
-    return '<div class="stat-mini-card reveal-on-scroll">' +
-      '<div class="stat-mini-icon">' + icon + '</div>' +
-      '<div class="stat-mini-body">' +
-        '<div class="stat-mini-label">' + escapeHtml(label) + '</div>' +
-        '<div class="stat-mini-count">' + count + ' <span class="stat-mini-unit">bài</span></div>' +
-        '<div class="stat-mini-bar"><div class="stat-mini-bar-fill" style="width:' + pct + '%"></div></div>' +
-      '</div>' +
-    '</div>';
-  }
-
-  function renderSection(title, itemsHtml){
-    return '<div class="stats-section reveal-on-scroll">' +
-      '<h3 class="stats-section-title">' + title + '</h3>' +
-      '<div class="stats-grid">' + itemsHtml + '</div>' +
-    '</div>';
-  }
-
-  function render(mKey){
-    var stats = computeStats(mKey);
-    var container = document.getElementById('statsContent');
-    if (!container) return;
-
-    var channelHtml = CHANNELS.map(function(c){
-      return renderStatCard(c.icon, c.key, stats.byChannel[c.key] || 0, stats.totalPosted);
-    }).join('');
-
-    var brandHtml = BRANDS.map(function(b){
-      return renderStatCard(b.icon, b.key, stats.byBrand[b.key] || 0, stats.totalPosted);
-    }).join('');
-
-    var productHtml = PRODUCTS.map(function(p){
-      return renderStatCard(p.icon, p.key, stats.byProduct[p.key] || 0, stats.totalPosted);
-    }).join('');
-
-    var assigneeEntries = Object.keys(stats.byAssignee).sort(function(a, b){
-      return stats.byAssignee[b] - stats.byAssignee[a];
-    });
-    var medals = ['🥇', '🥈', '🥉'];
-    var assigneeHtml = assigneeEntries.length ? assigneeEntries.map(function(name, i){
-      return '<div class="leaderboard-row reveal-on-scroll">' +
-        '<span class="leaderboard-rank">' + (medals[i] || (i + 1)) + '</span>' +
-        '<span class="leaderboard-avatar">' + initials(name) + '</span>' +
-        '<span class="leaderboard-name">' + escapeHtml(name) + '</span>' +
-        '<span class="leaderboard-count">' + stats.byAssignee[name] + ' bài</span>' +
-      '</div>';
-    }).join('') : '<div class="stats-empty">Chưa có dữ liệu người đăng trong tháng này.</div>';
-
-    var maxWeek = Math.max.apply(null, stats.weekBuckets.concat([1]));
-    var weekHtml = stats.weekBuckets.map(function(count, i){
-      var h = Math.round((count / maxWeek) * 100);
-      return '<div class="timeline-bar-wrap">' +
-        '<div class="timeline-bar-count">' + count + '</div>' +
-        '<div class="timeline-bar" style="height:' + Math.max(h, 4) + '%"></div>' +
-        '<div class="timeline-bar-label">Tuần ' + (i + 1) + '</div>' +
-      '</div>';
-    }).join('');
-
-    container.innerHTML =
-      '<div class="stats-hero reveal-on-scroll">' +
-        '<div class="stats-hero-icon">🚀</div>' +
-        '<div class="stats-hero-number" data-count="' + stats.totalPosted + '">0</div>' +
-        '<div class="stats-hero-label">Tổng số bài đăng (Chờ xuất bản / Xuất bản) trong ' + monthLabel(mKey) + '</div>' +
-        '<div class="stats-hero-sub">' + stats.totalPlanned + ' content được lên kế hoạch trong tháng này</div>' +
-      '</div>' +
-      renderSection('📡 Theo từng kênh', channelHtml) +
-      renderSection('🏷️ Theo từng thương hiệu', brandHtml) +
-      renderSection('📦 Theo từng danh mục sản phẩm', productHtml) +
-      '<div class="stats-section reveal-on-scroll">' +
-        '<h3 class="stats-section-title">🏆 Người đăng nhiều nhất</h3>' +
-        '<div class="leaderboard">' + assigneeHtml + '</div>' +
-      '</div>' +
-      '<div class="stats-section reveal-on-scroll">' +
-        '<h3 class="stats-section-title">📅 Mốc thời gian trong tháng</h3>' +
-        '<div class="timeline-chart">' + weekHtml + '</div>' +
-      '</div>';
-
-    animateCountUp();
-    observeReveal();
-  }
-
-  function animateCountUp(){
-    var el = document.querySelector('.stats-hero-number');
-    if (!el) return;
-    var target = parseInt(el.getAttribute('data-count'), 10) || 0;
-    var steps = 30;
-    var inc = target / steps;
-    var i = 0;
-    var timer = setInterval(function(){
-      i++;
-      var current = Math.min(target, Math.round(inc * i));
-      el.textContent = current;
-      if (i >= steps || current >= target) {
-        el.textContent = target;
-        clearInterval(timer);
-      }
-    }, 30);
-  }
-
-  var revealObserver = null;
-  function observeReveal(){
-    if (!('IntersectionObserver' in window)) {
-      var els = document.querySelectorAll('.reveal-on-scroll');
-      for (var k = 0; k < els.length; k++) els[k].classList.add('revealed');
-      return;
-    }
-    if (!revealObserver) {
-      revealObserver = new IntersectionObserver(function(entries){
-        entries.forEach(function(entry){
-          if (entry.isIntersecting) {
-            entry.target.classList.add('revealed');
-            revealObserver.unobserve(entry.target);
-          }
-        });
-      }, { threshold: 0.12 });
-    }
-    var pending = document.querySelectorAll('.reveal-on-scroll:not(.revealed)');
-    for (var j = 0; j < pending.length; j++) revealObserver.observe(pending[j]);
-  }
-
-  function buildMonthOptions(){
-    var select = document.getElementById('statsMonthSelect');
-    if (!select) return;
-    var all = readContent();
-    var seen = {};
-    var keys = [];
-    all.forEach(function(item){
-      if (item && item.date && item.date.length >= 7) {
-        var k = item.date.slice(0, 7);
-        if (!seen[k]) { seen[k] = true; keys.push(k); }
-      }
-    });
-    var defaultKey = prevMonthKey();
-    if (!seen[defaultKey]) keys.push(defaultKey);
-    keys.sort().reverse();
-    select.innerHTML = keys.map(function(k){
-      return '<option value="' + k + '">' + monthLabel(k) + '</option>';
-    }).join('');
-    select.value = defaultKey;
-  }
-
-  function refreshStats(){
-    var select = document.getElementById('statsMonthSelect');
-    var key = select && select.value ? select.value : prevMonthKey();
-    render(key);
-  }
-
-  var boardBtn = document.getElementById('viewBoardBtn');
-  var statsBtn = document.getElementById('viewStatsBtn');
-  var boardView = document.getElementById('plannerBoardView');
-  var statsView = document.getElementById('plannerStatsView');
-
-  function showBoardView(){
-    if (boardBtn) boardBtn.classList.add('active');
-    if (statsBtn) statsBtn.classList.remove('active');
-    if (boardView) boardView.classList.remove('hidden-section');
-    if (statsView) statsView.classList.add('hidden-section');
-  }
-
-  function showStatsView(forceMonthKey){
-    if (statsBtn) statsBtn.classList.add('active');
-    if (boardBtn) boardBtn.classList.remove('active');
-    if (statsView) statsView.classList.remove('hidden-section');
-    if (boardView) boardView.classList.add('hidden-section');
-    buildMonthOptions();
-    var select = document.getElementById('statsMonthSelect');
-    if (forceMonthKey && select) {
-      var hasOption = Array.prototype.some.call(select.options, function(o){ return o.value === forceMonthKey; });
-      if (!hasOption) {
-        var opt = document.createElement('option');
-        opt.value = forceMonthKey;
-        opt.textContent = monthLabel(forceMonthKey);
-        select.insertBefore(opt, select.firstChild);
-      }
-      select.value = forceMonthKey;
-    }
-    refreshStats();
-  }
-
-  if (boardBtn) boardBtn.addEventListener('click', showBoardView);
-  if (statsBtn) statsBtn.addEventListener('click', showStatsView);
-  var monthSelect = document.getElementById('statsMonthSelect');
-  if (monthSelect) monthSelect.addEventListener('change', refreshStats);
-
-  window.__vinhShowStatsView = showStatsView;
-
-  // ==========================================================================
-  // ⚙️ Ẩn/hiện toàn bộ tính năng "Thống kê tháng" tùy ý — khi ẩn, cả nút chuyển
-  // tab lẫn trang cover đầu/cuối tháng đều tự động ẩn theo. Trạng thái được
-  // lưu trong trình duyệt (localStorage) nên vẫn giữ nguyên sau khi F5.
-  // ==========================================================================
-  var STATS_ENABLED_KEY = 'vps_stats_feature_enabled';
-  var statsToggleBtn = document.getElementById('statsToggleBtn');
-
-  function isStatsFeatureEnabled(){
-    var v = localStorage.getItem(STATS_ENABLED_KEY);
-    return v === null ? true : v === '1'; // mặc định: bật
-  }
-
-  function closeCoverImmediately(){
-    var overlay = document.getElementById('statsCoverOverlay');
-    if (overlay) {
-      overlay.classList.remove('open');
-      overlay.classList.remove('closing');
-    }
-  }
-
-  function applyStatsFeatureVisibility(){
-    var enabled = isStatsFeatureEnabled();
-
-    if (statsBtn) statsBtn.style.display = enabled ? '' : 'none';
-
-    if (!enabled) {
-      // Nếu đang mở tab Thống kê mà bị tắt tính năng, quay về Bảng nội dung.
-      if (statsView && !statsView.classList.contains('hidden-section')) {
-        showBoardView();
-      }
-      // Cover cũng phải ẩn theo ngay lập tức, không chờ tự động biến mất.
-      closeCoverImmediately();
-    }
-
-    if (statsToggleBtn) {
-      statsToggleBtn.textContent = enabled ? '⚙️ Ẩn thống kê' : '⚙️ Hiện thống kê';
-      statsToggleBtn.title = enabled
-        ? 'Ẩn tab Thống kê tháng và trang cover đầu/cuối tháng'
-        : 'Hiện lại tab Thống kê tháng';
-    }
-  }
-
-  if (statsToggleBtn) {
-    statsToggleBtn.addEventListener('click', function(){
-      var next = !isStatsFeatureEnabled();
-      localStorage.setItem(STATS_ENABLED_KEY, next ? '1' : '0');
-      applyStatsFeatureVisibility();
-    });
-  }
-
-  applyStatsFeatureVisibility();
-  window.__vinhIsStatsFeatureEnabled = isStatsFeatureEnabled;
-
-  // ==========================================================================
-  // ⚙️ CẤU HÌNH TRANG COVER THỐNG KÊ ĐẦU/CUỐI THÁNG — chỉnh trực tiếp tại đây
-  // ==========================================================================
-  var COVER_CONFIG = {
-    // Cover sẽ hiện nếu ngày hiện tại (theo lịch máy tính) >= START_DAY
-    // (tính từ cuối tháng) HOẶC <= END_DAY (tính từ đầu tháng kế tiếp).
-    // Mặc định: từ ngày 28 tháng trước đến ngày 5 tháng sau.
-    START_DAY: 28,   // đổi thành 25 nếu muốn hiện sớm hơn (từ ngày 25), v.v.
-    END_DAY: 5,      // đổi thành 10 nếu muốn hiện tới ngày 10 tháng sau, v.v.
-
-    // Số giây cover hiển thị trước khi tự biến mất và chuyển vào tab Thống kê.
-    DISPLAY_SECONDS: 5,
-
-    // true  = mỗi phiên trình duyệt (mỗi lần mở tab mới) chỉ hiện cover 1 lần,
-    //         dù người dùng có tải lại (F5) trang nhiều lần trong ngày.
-    // false = hiện lại mỗi lần tải trang, miễn là vẫn trong khoảng ngày cho phép.
-    SHOW_ONCE_PER_SESSION: true,
-
-    // true  = bật cover; false = tắt hẳn tính năng cover (chỉ dùng tab Thống kê
-    //         bằng cách bấm nút "📊 Thống kê tháng" như bình thường).
-    ENABLED: true
-  };
-  var COVER_SESSION_KEY = 'vps_stats_cover_shown';
-  // ==========================================================================
-  // ⚙️ Hết phần cấu hình — không cần chỉnh gì bên dưới đây.
-  // ==========================================================================
-
-  function isInCoverWindow(){
-    var day = new Date().getDate();
-    return day >= COVER_CONFIG.START_DAY || day <= COVER_CONFIG.END_DAY;
-  }
-
-  function initCover(){
-    if (!COVER_CONFIG.ENABLED) return;
-    if (window.__vinhIsStatsFeatureEnabled && !window.__vinhIsStatsFeatureEnabled()) return;
-    if (!isInCoverWindow()) return;
-    if (COVER_CONFIG.SHOW_ONCE_PER_SESSION && sessionStorage.getItem(COVER_SESSION_KEY)) return;
-
-    var overlay = document.getElementById('statsCoverOverlay');
-    var quick = document.getElementById('coverQuickStats');
-    if (!overlay) return;
-
-    var stats = computeStats(currentMonthKey());
-    if (quick) {
-      quick.innerHTML =
-        '<div class="cover-quick-item"><div class="cover-quick-num">' + stats.totalPosted + '</div><div class="cover-quick-label">bài đăng</div></div>' +
-        '<div class="cover-quick-item"><div class="cover-quick-num">' + Object.keys(stats.byChannel).length + '</div><div class="cover-quick-label">kênh</div></div>' +
-        '<div class="cover-quick-item"><div class="cover-quick-num">' + Object.keys(stats.byBrand).length + '</div><div class="cover-quick-label">thương hiệu</div></div>' +
-        '<div class="cover-quick-item"><div class="cover-quick-num">' + Object.keys(stats.byAssignee).length + '</div><div class="cover-quick-label">người đăng</div></div>';
-    }
-
-    overlay.classList.add('open');
-    if (COVER_CONFIG.SHOW_ONCE_PER_SESSION) sessionStorage.setItem(COVER_SESSION_KEY, '1');
-
-    setTimeout(function(){
-      overlay.classList.add('closing');
-      setTimeout(function(){
-        overlay.classList.remove('open');
-        overlay.classList.remove('closing');
-        if (window.__vinhShowStatsView) window.__vinhShowStatsView(currentMonthKey());
-      }, 480);
-    }, COVER_CONFIG.DISPLAY_SECONDS * 1000);
-  }
-
-  setTimeout(initCover, 700);
-})();
-</script>
 
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script>
@@ -3499,6 +3013,171 @@
       label.appendChild(star);
     }
   });
+})();
+</script>
+
+<style>
+  .auth-login-btn{
+    border:none; cursor:pointer; border-radius:999px; padding:9px 20px;
+    font-size:13px; font-weight:800; color:#fff; letter-spacing:.2px;
+    background:linear-gradient(135deg,#ff6a3d,#ff2f6e);
+    animation: authGlowPulse 1.8s ease-in-out infinite;
+    transition: transform .15s ease;
+  }
+  .auth-login-btn:hover{ transform: translateY(-1px); }
+  @keyframes authGlowPulse{
+    0%{ box-shadow:0 0 0 0 rgba(255,58,110,.55); }
+    70%{ box-shadow:0 0 0 13px rgba(255,58,110,0); }
+    100%{ box-shadow:0 0 0 0 rgba(255,58,110,0); }
+  }
+  .auth-login-btn.logged-in{
+    background:linear-gradient(135deg,#34a853,#1e8e5a);
+    animation:none; box-shadow:none;
+  }
+  .auth-modal{ max-width:380px; }
+  .auth-error{
+    color:#c0392b; font-size:12.5px; margin-top:-4px; margin-bottom:10px;
+    display:none;
+  }
+  .auth-error.show{ display:block; }
+</style>
+
+<script>
+(function(){
+  // ==========================================================================
+  // 🔐 Đăng nhập / phân quyền (Admin / Nhân viên) qua Supabase Auth.
+  // Đọc là công khai (không cần đăng nhập); mọi thao tác ghi (thêm/sửa/xóa/
+  // phê duyệt) đều bị chặn ở cả giao diện lẫn tầng Supabase (RLS + trigger)
+  // nếu chưa đăng nhập hoặc không đủ quyền.
+  // ==========================================================================
+  var AUTH_URL = "https://okhvwdzhxyskmxckdqam.supabase.co";
+  var AUTH_KEY = "sb_publishable_6iCApdhAtJVnKonvUVJbUA_OpyW5lMB";
+  var authClient = null;
+  try {
+    authClient = supabase.createClient(AUTH_URL, AUTH_KEY);
+  } catch (e) {
+    console.error('[Kafka X] Không khởi tạo được Auth client:', e);
+  }
+
+  var authBtn = document.getElementById('authAreaBtn');
+  var authOverlay = document.getElementById('authOverlay');
+  var authForm = document.getElementById('authForm');
+  var authError = document.getElementById('authError');
+  var authEmail = document.getElementById('authEmail');
+  var authPassword = document.getElementById('authPassword');
+
+  function showAuthError(msg){
+    authError.textContent = msg;
+    authError.classList.add('show');
+  }
+  function hideAuthError(){
+    authError.textContent = '';
+    authError.classList.remove('show');
+  }
+  function openAuthModal(){
+    hideAuthError();
+    authForm.reset();
+    authOverlay.classList.add('open');
+    setTimeout(function(){ authEmail && authEmail.focus(); }, 50);
+  }
+  function closeAuthModal(){
+    authOverlay.classList.remove('open');
+  }
+
+  var currentSessionUser = null; // { id, email, displayName, role } hoặc null
+
+  function applyAuthUI(){
+    if (currentSessionUser) {
+      authBtn.textContent = '👤 ' + currentSessionUser.displayName +
+        (currentSessionUser.role === 'admin' ? ' (Admin)' : ' (Nhân viên)') + ' · Đăng xuất';
+      authBtn.classList.add('logged-in');
+      authBtn.title = 'Bấm để đăng xuất';
+    } else {
+      authBtn.textContent = '🔓 Đăng nhập';
+      authBtn.classList.remove('logged-in');
+      authBtn.title = 'Đăng nhập để chỉnh sửa content';
+    }
+    if (window.__vinh_setCurrentUser) window.__vinh_setCurrentUser(currentSessionUser);
+  }
+
+  async function loadProfileAndApply(session){
+    if (!session || !session.user) {
+      currentSessionUser = null;
+      applyAuthUI();
+      return;
+    }
+    try {
+      var res = await authClient.from('profiles').select('display_name, role').eq('id', session.user.id).single();
+      if (res.error || !res.data) {
+        currentSessionUser = null;
+        applyAuthUI();
+        return;
+      }
+      currentSessionUser = {
+        id: session.user.id,
+        email: session.user.email,
+        displayName: res.data.display_name,
+        role: res.data.role
+      };
+    } catch (e) {
+      currentSessionUser = null;
+    }
+    applyAuthUI();
+  }
+
+  authBtn.addEventListener('click', function(){
+    if (currentSessionUser) {
+      if (confirm('Đăng xuất khỏi tài khoản "' + currentSessionUser.displayName + '"?')) {
+        authClient.auth.signOut().then(function(){
+          currentSessionUser = null;
+          applyAuthUI();
+        });
+      }
+    } else {
+      openAuthModal();
+    }
+  });
+
+  document.getElementById('authModalCloseX').addEventListener('click', closeAuthModal);
+  document.getElementById('authCancelBtn').addEventListener('click', closeAuthModal);
+
+  authForm.addEventListener('submit', async function(e){
+    e.preventDefault();
+    hideAuthError();
+    var email = authEmail.value.trim();
+    var password = authPassword.value;
+    if (!authClient) {
+      showAuthError('Không kết nối được hệ thống đăng nhập.');
+      return;
+    }
+    var submitBtn = document.getElementById('authSubmitBtn');
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Đang đăng nhập...';
+    try {
+      var res = await authClient.auth.signInWithPassword({ email: email, password: password });
+      if (res.error) {
+        showAuthError('Sai email hoặc mật khẩu.');
+        return;
+      }
+      await loadProfileAndApply(res.data.session);
+      closeAuthModal();
+    } catch (err) {
+      showAuthError('Có lỗi xảy ra, vui lòng thử lại.');
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Đăng nhập';
+    }
+  });
+
+  // Khôi phục phiên đăng nhập cũ (nếu có) ngay khi tải trang.
+  if (authClient) {
+    authClient.auth.getSession().then(function(res){
+      loadProfileAndApply(res.data && res.data.session);
+    });
+    authClient.auth.onAuthStateChange(function(event, session){
+      loadProfileAndApply(session);
+    });
+  }
 })();
 </script>
 
