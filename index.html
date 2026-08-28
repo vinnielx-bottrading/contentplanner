@@ -1873,8 +1873,41 @@ _0x109761["addEventListener"]("click",()=>{if(!_0xacfd17)return;const _0x115d98=
   // dụng khác — vốn là lúc thông báo cần hiện ra nhất.
   var WATCHED_KEYS = [CONTENT_KEY, TASKS_KEY, TRADE_KEY];
   var nativeSetItem = Storage.prototype.setItem;
+  var lastQuotaWarnAt = 0;
+
+  function warnQuotaOnce(){
+    var now = Date.now();
+    if (now - lastQuotaWarnAt < 5 * 60 * 1000) return; // tối đa 1 lần / 5 phút
+    lastQuotaWarnAt = now;
+    showToast({
+      type: 'delete',
+      title: 'Bộ nhớ trình duyệt (localStorage) đã đầy',
+      message: 'Dữ liệu vẫn được gửi lên Supabase bình thường, nhưng bộ nhớ cache cục bộ trên trình duyệt này đã đầy — nên kiểm tra lại các content có ảnh nhúng trực tiếp (base64) quá nặng.'
+    });
+  }
+
   Storage.prototype.setItem = function(key, value){
-    var result = nativeSetItem.apply(this, arguments);
+    var result;
+    try {
+      result = nativeSetItem.apply(this, arguments);
+    } catch (err) {
+      // QUAN TRỌNG: nếu localStorage đầy (QuotaExceededError), TUYỆT ĐỐI không
+      // để lỗi này lan ra ngoài — nếu không, nó sẽ chặn đứng luôn bước gửi dữ
+      // liệu lên Supabase ngay sau đó trong cùng hàm gọi (đây chính là nguyên
+      // nhân khiến nhiều thay đổi "tưởng đã lưu" nhưng thực ra chưa từng lên
+      // được server). Bỏ qua việc cache cục bộ, để ứng dụng tiếp tục chạy và
+      // vẫn gửi được dữ liệu lên Supabase như bình thường.
+      if (this === window.localStorage && err && (
+        err.name === 'QuotaExceededError' ||
+        err.name === 'NS_ERROR_DOM_QUOTA_REACHED' ||
+        err.code === 22 || err.code === 1014
+      )) {
+        console.warn('[Kafka X] localStorage đầy — bỏ qua cache cục bộ cho key "' + key + '", dữ liệu vẫn tiếp tục gửi lên Supabase.', err);
+        warnQuotaOnce();
+        return;
+      }
+      throw err;
+    }
     if (this === window.localStorage && WATCHED_KEYS.indexOf(key) !== -1) {
       // Chạy sau khi giá trị đã thực sự được ghi vào localStorage.
       setTimeout(checkAll, 0);
@@ -2363,8 +2396,8 @@ _0x109761["addEventListener"]("click",()=>{if(!_0xacfd17)return;const _0x115d98=
     // Cover sẽ hiện nếu ngày hiện tại (theo lịch máy tính) >= START_DAY
     // (tính từ cuối tháng) HOẶC <= END_DAY (tính từ đầu tháng kế tiếp).
     // Mặc định: từ ngày 28 tháng trước đến ngày 5 tháng sau.
-    START_DAY: 27,   // đổi thành 25 nếu muốn hiện sớm hơn (từ ngày 25), v.v.
-    END_DAY: 6,      // đổi thành 10 nếu muốn hiện tới ngày 10 tháng sau, v.v.
+    START_DAY: 28,   // đổi thành 25 nếu muốn hiện sớm hơn (từ ngày 25), v.v.
+    END_DAY: 5,      // đổi thành 10 nếu muốn hiện tới ngày 10 tháng sau, v.v.
 
     // Số giây cover hiển thị trước khi tự biến mất và chuyển vào tab Thống kê.
     DISPLAY_SECONDS: 5,
@@ -2527,6 +2560,74 @@ _0x109761["addEventListener"]("click",()=>{if(!_0xacfd17)return;const _0x115d98=
 
   var excelBtn = document.getElementById('exportExcelBtn');
   if (excelBtn) excelBtn.addEventListener('click', exportExcel);
+})();
+</script>
+
+<script>
+(function(){
+  // ==========================================================================
+  // 1) Bắt buộc chọn "Ngày đăng" trước khi lưu content.
+  // 2) Nếu để trống "Tuần", tự động gắn tuần dựa theo ngày đăng
+  //    (ngày 1-7 → Tuần 1, 8-14 → Tuần 2, 15-21 → Tuần 3, 22-28 → Tuần 4,
+  //    29-31 → Tuần 5), để không còn content nào rơi vào "(Chưa gắn tuần)"
+  //    một cách vô tình.
+  // Cách làm: gắn listener ở PHA CAPTURE trên document, chạy trước handler
+  // submit gốc của form (vốn nằm ở pha "tại đích"), nhờ đó có thể chặn submit
+  // (nếu thiếu ngày) hoặc tự điền Tuần trước khi handler gốc đọc giá trị.
+  // ==========================================================================
+
+  var WEEK_LABELS = ['Tuần 1', 'Tuần 2', 'Tuần 3', 'Tuần 4', 'Tuần 5'];
+
+  function computeWeekFromDdMmYyyy(value){
+    var m = String(value || '').trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (!m) return null;
+    var day = parseInt(m[1], 10);
+    var idx = Math.min(4, Math.max(0, Math.floor((day - 1) / 7)));
+    return WEEK_LABELS[idx];
+  }
+
+  document.addEventListener('submit', function(e){
+    if (!e.target || e.target.id !== 'cardForm') return;
+
+    var dateInput = document.getElementById('fDate');
+    var weekInput = document.getElementById('fWeek');
+    var dateValue = dateInput ? dateInput.value.trim() : '';
+
+    if (!dateValue) {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      alert('Vui lòng chọn Ngày đăng trước khi lưu content. Đây là trường bắt buộc.');
+      if (dateInput) dateInput.focus();
+      return;
+    }
+
+    // Tự động gắn tuần theo ngày đăng nếu người dùng chưa chọn tuần.
+    if (weekInput && !weekInput.value.trim()) {
+      var autoWeek = computeWeekFromDdMmYyyy(dateValue);
+      if (autoWeek) weekInput.value = autoWeek;
+    }
+  }, true);
+
+  // Gợi ý tuần ngay khi người dùng chọn ngày, để họ thấy trước kết quả tự động
+  // gắn tuần (vẫn có thể tự tay đổi lại nếu muốn tuần khác).
+  document.addEventListener('input', function(e){
+    if (!e.target || e.target.id !== 'fDate') return;
+    var weekInput = document.getElementById('fWeek');
+    if (!weekInput || weekInput.value.trim()) return;
+    var autoWeek = computeWeekFromDdMmYyyy(e.target.value);
+    if (autoWeek) weekInput.value = autoWeek;
+  });
+
+  // Đánh dấu (*) cho nhãn "Ngày đăng" để người dùng biết đây là trường bắt buộc.
+  document.querySelectorAll('label').forEach(function(label){
+    if (label.textContent.trim() === 'Ngày đăng' && !label.querySelector('.required-star')) {
+      var star = document.createElement('span');
+      star.className = 'required-star';
+      star.style.color = '#d64545';
+      star.textContent = ' *';
+      label.appendChild(star);
+    }
+  });
 })();
 </script>
 
