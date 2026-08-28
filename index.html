@@ -1048,7 +1048,15 @@
       const _0xa12496 = localStorage["getItem"](_0x1d8095);
       if (_0xa12496) return JSON['parse'](_0xa12496);
     } catch (_0x3c361f) {}
-    return _0x5ab167();
+    // QUAN TRỌNG: KHÔNG fallback về dữ liệu mẫu nữa. Supabase giờ là nguồn dữ
+    // liệu chính thức duy nhất — nếu localStorage trống/lỗi, bắt đầu với mảng
+    // rỗng và để onSnapshot() nạp đúng dữ liệu thật ngay khi kết nối xong.
+    // (Trước đây fallback về 2 content mẫu "Tour Malaysia" / "Behind the
+    // scenes: Singapore" mỗi khi localStorage trống — đây chính là nguyên
+    // nhân gốc gây nhân bản dữ liệu liên tục trong suốt các lần khắc phục
+    // trước, vì mỗi bản mẫu mới lại được coi là "content chưa đồng bộ" rồi
+    // tự động đẩy lên Supabase như dữ liệu thật.)
+    return [];
   }
 
   function _0x2dc1ce(_0x4a601c) {
@@ -1267,39 +1275,6 @@
     } catch (_0xf9f08d) {
       _0x18665f("error", "Không khởi tạo được Supabase"), _0x42ceb7(), _0x20ff35();
     }
-  }
-
-  function _0x5ab167() {
-    const _0x1862bb = _0x12fda4;
-    return [{
-      'id': _0xe449dc(),
-      'week': "Tuần 1",
-      'date': '2026-08-03',
-      'content': "Tour Malaysia - Singapore: giới thiệu lịch trình 5N4Đ",
-      'pillar': "Knowledge",
-      'status': 'Xuất\x20bản',
-      'product': "Tour",
-      'cta': "Inbox tư vấn",
-      'channels': ["Facebook"],
-      'assignee': 'Trường',
-      'deadline': '2026-08-02',
-      'link': "https://www.facebook.com/vpsglobal.travel/posts",
-      'thumb': ''
-    }, {
-      'id': _0xe449dc(),
-      'week': 'Tuần\x201',
-      'date': "2026-08-05",
-      'content': "Behind the scenes: chuẩn bị đoàn khách đi Singapore",
-      'pillar': 'Trend',
-      'status': "Đang xem xét",
-      'product': "Tour",
-      'cta': "Theo dõi trang",
-      'channels': ["TikTok", "Instagram"],
-      'assignee': '',
-      'deadline': '',
-      'link': '',
-      'thumb': ''
-    }];
   }
 
   function _0xe449dc() {
