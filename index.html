@@ -1832,7 +1832,14 @@
           fAssigneeEl.value = _0xCurrentUser.displayName || '';
         }
       }
-      if (fStatusEl) fStatusEl.disabled = !!isStaff;
+      if (fStatusEl) {
+        // Không khóa cả dropdown — nhân viên được tự do chọn mọi trạng thái,
+        // CHỈ vô hiệu hóa đúng 2 lựa chọn "Chờ xuất bản"/"Xuất bản" (tương
+        // đương hành động duyệt bài, tuyệt đối chỉ admin mới được làm).
+        Array.prototype.forEach.call(fStatusEl.options, function(opt) {
+          opt.disabled = !!isStaff && (opt.value === 'Chờ xuất bản' || opt.value === 'Xuất bản');
+        });
+      }
     })();
     _0x159286["classList"]['add']("open");
   }
@@ -2003,12 +2010,11 @@
         // nguyên tên gốc (dù đó là người khác); khi thêm bài mới, tự gán tên
         // của chính người đang đăng nhập.
         __submittedAssignee = __existingItem ? __existingItem['assignee'] : _0xCurrentUser.displayName;
-        // Nhân viên không được tự đổi trạng thái qua form này — giữ nguyên
-        // trạng thái cũ khi sửa bài, hoặc mặc định trạng thái khởi tạo khi
-        // thêm bài mới. (Gửi duyệt vẫn thực hiện qua nút "Cần xem xét" riêng.)
-        __submittedStatus = __existingItem ? __existingItem['status'] : (document["getElementById"]("fStatus")["value"] || _0x204bfd[0x0]);
-        if (!_0x204bfd.includes(__submittedStatus) || ['Chờ xuất bản', 'Xuất bản'].includes(__submittedStatus)) {
-          __submittedStatus = _0x204bfd[0x0];
+        // Nhân viên được tự do chọn MỌI trạng thái, chỉ chặn duy nhất việc tự
+        // đưa bài vào trạng thái đã duyệt/xuất bản (hành động duyệt bài).
+        if (['Chờ xuất bản', 'Xuất bản'].includes(__submittedStatus)) {
+          alert('Chỉ admin mới có quyền đưa content vào trạng thái "' + __submittedStatus + '".');
+          return;
         }
       }
       const _0x3b143d = [...document["querySelectorAll"]("#channelChecks input:checked")]['map'](_0x7ea971 => _0x7ea971['value']),
