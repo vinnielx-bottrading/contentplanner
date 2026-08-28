@@ -815,7 +815,7 @@
       <div class="row2">
         <div class="field">
           <label>Người phụ trách</label>
-          <input type="text" id="fAssignee" placeholder="VD: Tên">
+          <input type="text" id="fAssignee" placeholder="VD: Trường">
         </div>
         <div class="field">
           <label style="display:none">Deadline</label>
@@ -2028,8 +2028,7 @@
         ['fBrand', 'Thương hiệu'],
         ['fFormat', 'Định dạng nội dung'],
         ['fPillar', 'Pillar'],
-        ['fProduct', 'Sản phẩm'],
-        
+        ['fProduct', 'Sản phẩm']
       ];
       for (const [__fid, __flabel] of __requiredFieldChecks) {
         const __fel = document.getElementById(__fid);
@@ -3025,7 +3024,7 @@
   });
 
   // Đánh dấu (*) cho nhãn các trường bắt buộc, để người dùng biết ngay từ đầu.
-  var __requiredLabels = ['Ngày đăng', 'Thương hiệu', 'Định dạng nội dung', 'Pillar', 'Sản phẩm', 'CTA', 'Kênh đăng'];
+  var __requiredLabels = ['Ngày đăng', 'Thương hiệu', 'Định dạng nội dung', 'Pillar', 'Sản phẩm', 'Kênh đăng'];
   document.querySelectorAll('label').forEach(function(label){
     if (__requiredLabels.indexOf(label.textContent.trim()) !== -1 && !label.querySelector('.required-star')) {
       var star = document.createElement('span');
