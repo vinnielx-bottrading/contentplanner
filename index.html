@@ -1058,6 +1058,7 @@
   } catch (_0xVersionCheckErr) {}
 
   let _0x2fc8d0 = _0x379128();
+  const _0xPendingDeletes = new Set();
 
   function _0x379128() {
     const _0x2458e6 = _0x12fda4;
@@ -1089,7 +1090,20 @@
   function _0x5387a6(_0x4f9db8) {
     const _0x5a1d56 = _0x12fda4;
     localStorage["setItem"](_0x1d8095, JSON['stringify'](_0x2fc8d0));
-    if (_0x2405e1) return _0x18665f("syncing", "Đang xóa..."), _0x2405e1["collection"]("content")["doc"](_0x4f9db8)['delete']()["then"](() => _0x18665f('ok', 'Đã\x20đồng\x20bộ\x20(real-time)'))["catch"](_0x34ff48 => _0x18665f("error", "Lỗi xóa: " + _0x34ff48['message']));
+    // QUAN TRỌNG: đánh dấu ID này đang trong quá trình xóa. Nếu một sự kiện
+    // đồng bộ real-time (onSnapshot) xảy ra TRƯỚC KHI lệnh xóa lên Supabase
+    // thực sự hoàn tất (do độ trễ mạng), server vẫn còn trả về bản ghi này —
+    // nếu không có cờ đánh dấu, nó sẽ bị "hồi sinh" ngay lập tức do bị gộp lại
+    // vào danh sách hiển thị. Đây chính là nguyên nhân "xóa xong lại hiện lại".
+    _0xPendingDeletes.add(_0x4f9db8);
+    if (_0x2405e1) return _0x18665f("syncing", "Đang xóa..."), _0x2405e1["collection"]("content")["doc"](_0x4f9db8)['delete']()["then"](() => {
+      _0xPendingDeletes.delete(_0x4f9db8);
+      _0x18665f('ok', 'Đã\x20đồng\x20bộ\x20(real-time)');
+    })["catch"](_0x34ff48 => {
+      _0xPendingDeletes.delete(_0x4f9db8);
+      _0x18665f("error", "Lỗi xóa: " + _0x34ff48['message']);
+    });
+    _0xPendingDeletes.delete(_0x4f9db8);
     return Promise["resolve"]();
   }
 
@@ -1270,14 +1284,21 @@
         'synchronizeTabs': !![]
       })['catch'](() => {}), _0x18665f("syncing", "Đang kết nối..."), _0x2405e1["collection"]("content")["onSnapshot"](_0x51f7b6 => {
         const _0x6d2e95 = _0x414841;
-        const __serverList = _0x51f7b6["docs"]['map'](_0x5cdcea => _0x39d4c8(Object["assign"]({}, _0x5cdcea["data"](), {
+        const __serverListRaw = _0x51f7b6["docs"]['map'](_0x5cdcea => _0x39d4c8(Object["assign"]({}, _0x5cdcea["data"](), {
           'id': _0x5cdcea['id']
         })));
+        // Loại bỏ khỏi kết quả server bất kỳ ID nào đang trong quá trình xóa
+        // (xem _0xPendingDeletes ở _0x5387a6) để tránh bị "hồi sinh" do race
+        // condition giữa lệnh xóa và sự kiện đồng bộ real-time đến trước khi
+        // lệnh xóa lên Supabase thực sự hoàn tất.
+        const __serverList = __serverListRaw.filter(function(x) {
+          return !(x && x.id && _0xPendingDeletes.has(x.id));
+        });
         const __serverIds = new Set(__serverList.map(function(x) {
           return x.id;
         }));
         const __unsynced = (_0x2fc8d0 || []).filter(function(x) {
-          return x && x.id && !__serverIds.has(x.id);
+          return x && x.id && !__serverIds.has(x.id) && !_0xPendingDeletes.has(x.id);
         });
         if (__unsynced.length > 0) {
           console.warn('[Kafka X] ' + __unsynced.length + ' content chưa đồng bộ lên Supabase, đang giữ lại tạm thời:', __unsynced.map(function(x) {
