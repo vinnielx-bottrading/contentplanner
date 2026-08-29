@@ -761,6 +761,7 @@
       <button class="btn-ghost" id="exportBtn">⬇ Export JSON</button>
       <button class="btn-ghost" id="importBtn">⬆ Import JSON</button>
       <input type="file" id="importFile" accept="application/json">
+      <button type="button" class="btn-ghost" id="migrateThumbsBtn" style="display:none;" title="Chuyển các ảnh thumbnail đang dán trực tiếp dạng base64 trong database sang Supabase Storage, giúp giảm dung lượng và tăng tốc đồng bộ. Chỉ admin nhìn thấy nút này.">🧹 Dọn ảnh nặng</button>
     </div>
     <div class="grid-count" id="gridCount"></div>
     <div id="board"></div>
@@ -926,6 +927,10 @@
   let _0xCurrentUser = null; // { id, email, displayName, role } khi đã đăng nhập, null khi chưa
   window.__vinh_setCurrentUser = function(_0xUser) {
     _0xCurrentUser = _0xUser;
+    // Expose công khai để các script độc lập khác (vd. tiện ích dọn ảnh nặng
+    // base64 -> Storage) biết được vai trò người đang đăng nhập mà không cần
+    // đụng vào biến nội bộ _0xCurrentUser.
+    window.__vinhCurrentUser = _0xUser;
     try {
       _0x20ff35();
     } catch (_0xIgnore) {}
@@ -2228,18 +2233,21 @@
 
 <script>
 (function () {
-  // Tải ảnh thumbnail thật (không chỉ nhập URL) cho mục tạo/sửa content.
-  // Ảnh được nén & thu nhỏ ở phía trình duyệt rồi lưu dưới dạng data URL vào đúng field fThumb hiện có,
-  // nên toàn bộ logic lưu/hiển thị ảnh (card, popup xem chi tiết) không cần thay đổi gì thêm.
+  // Tải ảnh thumbnail thật lên Supabase Storage (bucket "content-images").
+  // Ảnh được nén & thu nhỏ ở phía trình duyệt, upload lên Storage, rồi CHỈ lưu
+  // URL công khai vào field fThumb hiện có — không còn nhúng base64 vào
+  // database nữa (tránh làm phình bảng content / chậm đồng bộ realtime).
   var urlInput = document.getElementById('fThumb');
   var fileInput = document.getElementById('fThumbFile');
   var uploadBtn = document.getElementById('fThumbUploadBtn');
   var preview = document.getElementById('fThumbPreview');
   if (!urlInput || !fileInput || !uploadBtn || !preview) return;
 
+  var STORAGE_BUCKET = 'content-images';
   var MAX_DIMENSION = 1600;
-  var MAX_DATAURL_LENGTH = 700000; // ~700KB, chừa dư địa an toàn dưới giới hạn 1MB/tài liệu của Firestore
+  var MAX_UPLOAD_BYTES = 1500000; // ~1.5MB, dư sức dưới giới hạn 5MB của bucket
   var QUALITY_STEPS = [0.82, 0.7, 0.55, 0.4, 0.28];
+  var uploadBtnDefaultText = uploadBtn.textContent;
 
   function updatePreview() {
     if (urlInput.value) {
@@ -2251,12 +2259,50 @@
     }
   }
 
-  function compressToDataUrl(canvas) {
-    for (var i = 0; i < QUALITY_STEPS.length; i++) {
-      var url = canvas.toDataURL('image/jpeg', QUALITY_STEPS[i]);
-      if (url.length <= MAX_DATAURL_LENGTH) return url;
+  function setUploading(isUploading) {
+    uploadBtn.disabled = isUploading;
+    uploadBtn.textContent = isUploading ? 'Đang tải lên...' : uploadBtnDefaultText;
+  }
+
+  function compressToBlob(canvas) {
+    return new Promise(function (resolve) {
+      (function tryQuality(i) {
+        canvas.toBlob(function (blob) {
+          if (!blob) { resolve(null); return; }
+          if (blob.size <= MAX_UPLOAD_BYTES || i === QUALITY_STEPS.length - 1) {
+            resolve(blob);
+          } else {
+            tryQuality(i + 1);
+          }
+        }, 'image/jpeg', QUALITY_STEPS[i]);
+      })(0);
+    });
+  }
+
+  function uploadToStorage(blob) {
+    var authClient = window.__vinhAuthClient;
+    if (!authClient) {
+      alert('Chưa khởi tạo được kết nối Supabase, vui lòng tải lại trang.');
+      return;
     }
-    return canvas.toDataURL('image/jpeg', QUALITY_STEPS[QUALITY_STEPS.length - 1]);
+    setUploading(true);
+    var path = 'thumb_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8) + '.jpg';
+    authClient.storage.from(STORAGE_BUCKET).upload(path, blob, {
+      contentType: 'image/jpeg',
+      upsert: false
+    }).then(function (res) {
+      if (res && res.error) throw res.error;
+      var pub = authClient.storage.from(STORAGE_BUCKET).getPublicUrl(path);
+      var publicUrl = pub && pub.data && pub.data.publicUrl;
+      if (!publicUrl) throw new Error('Không lấy được đường dẫn công khai của ảnh.');
+      urlInput.value = publicUrl;
+      updatePreview();
+    }).catch(function (err) {
+      console.error('[Content Planner] Lỗi upload ảnh thumbnail:', err);
+      alert('Tải ảnh lên thất bại (' + ((err && err.message) || 'không rõ nguyên nhân') + '). Bạn cần đăng nhập trước khi tải ảnh lên.');
+    }).finally(function () {
+      setUploading(false);
+    });
   }
 
   uploadBtn.addEventListener('click', function () {
@@ -2286,12 +2332,13 @@
         canvas.height = ch;
         canvas.getContext('2d').drawImage(img, 0, 0, cw, ch);
 
-        var dataUrl = compressToDataUrl(canvas);
-        if (dataUrl.length > MAX_DATAURL_LENGTH * 1.3) {
-          alert('Ảnh khá nặng dù đã nén, có thể đồng bộ chậm. Nếu được, hãy chọn ảnh nhỏ/nhẹ hơn.');
-        }
-        urlInput.value = dataUrl;
-        updatePreview();
+        compressToBlob(canvas).then(function (blob) {
+          if (!blob) {
+            alert('Không nén được ảnh này, vui lòng thử ảnh khác.');
+            return;
+          }
+          uploadToStorage(blob);
+        });
       };
       img.onerror = function () {
         alert('Không đọc được ảnh này, vui lòng thử ảnh khác.');
@@ -2305,6 +2352,11 @@
   });
 
   urlInput.addEventListener('input', updatePreview);
+  urlInput.addEventListener('blur', function () {
+    if (urlInput.value && urlInput.value.indexOf('data:') === 0) {
+      alert('Đây là ảnh dán trực tiếp (base64), sẽ làm nặng database. Hãy dùng nút "⬆ Tải ảnh lên" thay vì dán mã ảnh.');
+    }
+  });
 
   // Cập nhật preview mỗi khi modal tạo/sửa content được mở (kể cả khi mở để sửa content có sẵn).
   var overlay = document.getElementById('overlay');
@@ -2991,6 +3043,9 @@
   } catch (e) {
     console.error('[Kafka X] Không khởi tạo được Auth client:', e);
   }
+  // Cho phép các script khác (vd. upload ảnh thumbnail lên Storage) dùng lại
+  // đúng client này, để request upload đi kèm phiên đăng nhập hiện tại.
+  window.__vinhAuthClient = authClient;
 
   var authBtn = document.getElementById('authAreaBtn');
   var authOverlay = document.getElementById('authOverlay');
@@ -3111,6 +3166,89 @@
       loadProfileAndApply(session);
     });
   }
+})();
+</script>
+
+<script>
+(function () {
+  // Tiện ích dọn dẹp 1 lần: chuyển các ảnh thumbnail đang lưu trực tiếp dạng
+  // base64 trong cột content.thumb sang Supabase Storage (bucket
+  // "content-images"), chỉ giữ lại URL công khai trong database. Chỉ admin
+  // nhìn thấy và chạy được nút này.
+  var STORAGE_BUCKET = 'content-images';
+  var btn = document.getElementById('migrateThumbsBtn');
+  if (!btn) return;
+
+  function isAdmin() {
+    var u = window.__vinhCurrentUser;
+    return !!(u && u.role === 'admin');
+  }
+
+  function refreshVisibility() {
+    btn.style.display = isAdmin() ? '' : 'none';
+  }
+  setInterval(refreshVisibility, 1000);
+  refreshVisibility();
+
+  function dataUrlToBlob(dataUrl) {
+    var parts = dataUrl.split(',');
+    var mimeMatch = /data:([^;]+);base64/.exec(parts[0]);
+    var mime = mimeMatch ? mimeMatch[1] : 'image/jpeg';
+    var binary = atob(parts[1]);
+    var bytes = new Uint8Array(binary.length);
+    for (var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    return { blob: new Blob([bytes], { type: mime }), mime: mime };
+  }
+
+  btn.addEventListener('click', async function () {
+    var authClient = window.__vinhAuthClient;
+    if (!authClient) { alert('Chưa khởi tạo được kết nối Supabase.'); return; }
+    if (!isAdmin()) { alert('Chỉ admin mới thực hiện được thao tác này.'); return; }
+    if (!confirm('Quét toàn bộ content, chuyển các ảnh thumbnail dạng base64 sang Supabase Storage. Tiếp tục?')) return;
+
+    btn.disabled = true;
+    var originalText = btn.textContent;
+
+    try {
+      btn.textContent = 'Đang quét...';
+      var res = await authClient.from('content').select('id, thumb').like('thumb', 'data:image%');
+      if (res.error) throw res.error;
+      var rows = res.data || [];
+      if (!rows.length) {
+        alert('Không có ảnh base64 nào cần chuyển. Mọi thumbnail đều đã là URL.');
+        return;
+      }
+
+      var okCount = 0, failCount = 0;
+      for (var i = 0; i < rows.length; i++) {
+        var row = rows[i];
+        btn.textContent = 'Đang xử lý ' + (i + 1) + '/' + rows.length + '...';
+        try {
+          var conv = dataUrlToBlob(row.thumb);
+          var ext = conv.mime.indexOf('jpeg') !== -1 ? 'jpg' : conv.mime.split('/')[1];
+          var path = 'migrated_' + row.id + '_' + Date.now() + '.' + ext;
+          var up = await authClient.storage.from(STORAGE_BUCKET).upload(path, conv.blob, { contentType: conv.mime, upsert: false });
+          if (up.error) throw up.error;
+          var pub = authClient.storage.from(STORAGE_BUCKET).getPublicUrl(path);
+          var publicUrl = pub && pub.data && pub.data.publicUrl;
+          if (!publicUrl) throw new Error('Không lấy được URL công khai');
+          var upd = await authClient.from('content').update({ thumb: publicUrl }).eq('id', row.id);
+          if (upd.error) throw upd.error;
+          okCount++;
+        } catch (rowErr) {
+          console.error('[Content Planner] Lỗi chuyển ảnh cho content', row.id, rowErr);
+          failCount++;
+        }
+      }
+      alert('Hoàn tất: ' + okCount + ' ảnh đã chuyển sang Storage thành công' + (failCount ? ', ' + failCount + ' ảnh lỗi (xem console).' : '.'));
+    } catch (err) {
+      console.error('[Content Planner] Lỗi dọn ảnh nặng:', err);
+      alert('Có lỗi khi quét/chuyển ảnh: ' + ((err && err.message) || 'không rõ nguyên nhân'));
+    } finally {
+      btn.disabled = false;
+      btn.textContent = originalText;
+    }
+  });
 })();
 </script>
 
