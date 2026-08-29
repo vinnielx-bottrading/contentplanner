@@ -439,7 +439,6 @@
     padding:20px 8px;
   }
   #importFile{display:none;}
-  #importExcelFile{display:none;}
 
   /* group by year / month / week — accordion (thanh ngang, bấm để mở/đóng) ở cả 3 cấp */
   .year-block{margin-bottom:22px;}
@@ -734,11 +733,8 @@
       <select id="filterPillar"><option value="">Tất cả Pillar</option></select>
       <select id="filterChannel"><option value="">Tất cả Kênh</option></select>
       <button class="btn-ghost" id="exportBtn">⬇ Export JSON</button>
-      <button class="btn-ghost" id="exportExcelBtn">⬇ Export Excel</button>
       <button class="btn-ghost" id="importBtn">⬆ Import JSON</button>
       <input type="file" id="importFile" accept="application/json">
-      <button class="btn-ghost" id="importExcelBtn">⬆ Import Excel</button>
-      <input type="file" id="importExcelFile" accept=".xlsx,.xls" multiple>
       <button class="btn-primary" id="addBtn">+ Thêm Content</button>
     </div>
     <div class="grid-count" id="gridCount"></div>
@@ -908,36 +904,6 @@
     try {
       _0x20ff35();
     } catch (_0xIgnore) {}
-  };
-  // Dùng bởi tính năng "Import Excel": thêm mới/cập nhật từng content theo ID,
-  // KHÔNG xóa các content khác không có trong danh sách nhập vào.
-  window.__vinh_bulkUpsertContent = async function(_0xItems) {
-    if (!_0xCurrentUser) {
-      alert("Bạn cần đăng nhập để nhập dữ liệu.");
-      return;
-    }
-    var _0xSavedCount = 0;
-    for (var _0xI = 0; _0xI < _0xItems.length; _0xI++) {
-      var _0xNewItem = _0x39d4c8(Object.assign({}, _0xItems[_0xI]));
-      var _0xExisting = _0x2fc8d0.find(function(x) { return x.id === _0xNewItem.id; });
-      if (_0xExisting) {
-        Object.assign(_0xExisting, _0xNewItem);
-      } else {
-        _0x2fc8d0.push(_0xNewItem);
-      }
-      _0xSavedCount++;
-    }
-    _0x20ff35();
-    localStorage.setItem(_0x1d8095, JSON.stringify(_0x2fc8d0));
-    if (_0x2405e1) {
-      _0x18665f("syncing", "Đang nhập " + _0xSavedCount + " content từ Excel...");
-      for (var _0xJ = 0; _0xJ < _0xItems.length; _0xJ++) {
-        var _0xToSync = _0x2fc8d0.find(function(x) { return x.id === _0xItems[_0xJ].id; });
-        if (_0xToSync) { try { await _0x2dc1ce(_0xToSync); } catch (_0xE) {} }
-      }
-      _0x18665f('ok', "Đã đồng bộ (real-time)");
-    }
-    alert("Đã nhập xong " + _0xSavedCount + " content từ file Excel.");
   };
     const _0x50a568 = {
       'Đang thực hiện': {
@@ -1358,18 +1324,13 @@
         const __serverList = __serverListRaw.filter(function(x) {
           return !(x && x.id && _0xPendingDeletes.has(x.id));
         });
-        const __serverIds = new Set(__serverList.map(function(x) {
-          return x.id;
-        }));
-        const __unsynced = (_0x2fc8d0 || []).filter(function(x) {
-          return x && x.id && !__serverIds.has(x.id) && !_0xPendingDeletes.has(x.id);
-        });
-        if (__unsynced.length > 0) {
-          console.warn('[Kafka X] ' + __unsynced.length + ' content chưa đồng bộ lên Supabase, đang giữ lại tạm thời:', __unsynced.map(function(x) {
-            return x.id;
-          }));
-        }
-        _0x2fc8d0 = __serverList.concat(__unsynced), localStorage["setItem"](_0x1d8095, JSON['stringify'](_0x2fc8d0)), _0x42ceb7(), _0x20ff35(), _0x18665f('ok', "Đã đồng bộ (real-time)");
+        // QUAN TRỌNG: Supabase LUÔN là nguồn dữ liệu duy nhất và chính xác
+        // nhất — không còn giữ lại bất kỳ item "chưa đồng bộ" nào từ bộ nhớ
+        // cục bộ nữa. Cơ chế "giữ lại tạm thời" trước đây chính là nguyên
+        // nhân gây ra tình trạng dữ liệu đã xóa liên tục hồi sinh: một tab cũ
+        // còn mở sẽ giữ mãi bản sao cục bộ và tự động đẩy lại lên server sau
+        // mỗi vài chục giây, bất kể người khác đã xóa bao nhiêu lần.
+        _0x2fc8d0 = __serverList, localStorage["setItem"](_0x1d8095, JSON['stringify'](_0x2fc8d0)), _0x42ceb7(), _0x20ff35(), _0x18665f('ok', "Đã đồng bộ (real-time)");
       }, _0x55a9e7 => {
         const _0xcb8721 = _0x414841;
         _0x18665f("error", "Lỗi Supabase: " + _0x55a9e7["message"]);
@@ -2170,22 +2131,6 @@
   _0x20ff35(), _0x5aab46(), setInterval(() => {
     if (_0x42ceb7()) _0x20ff35();
   }, 0x5 * 0x3c * 0x3e8);
-  // ---- Tự động thử lưu lại các content chưa đồng bộ lên Supabase (ví dụ do lỗi mạng/ảnh quá nặng) ----
-  setInterval(function() {
-    if (!_0x2405e1) return;
-    _0x2405e1.collection('content').get().then(function(snap) {
-      var serverIds = new Set(snap.docs.map(function(d) {
-        return d.id;
-      }));
-      var pending = (_0x2fc8d0 || []).filter(function(x) {
-        return x && x.id && !serverIds.has(x.id);
-      });
-      pending.forEach(function(item) {
-        console.log('[Kafka X] Đang thử lưu lại content chưa đồng bộ:', item.id);
-        _0x2dc1ce(item);
-      });
-    }).catch(function() {});
-  }, 30000);
 }());</script>
 
 
@@ -2871,225 +2816,6 @@
 </script>
 
 
-<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-<script>
-(function(){
-  // ==========================================================================
-  // 📊 Xuất Excel: sao lưu toàn bộ Content Planner (Content + Công việc nhóm +
-  // Trade Marketing) thành 1 file .xlsx nhiều sheet để lưu trữ dự phòng.
-  // Đây là bản sao lưu để XEM/ĐỐI CHIẾU; muốn khôi phục đầy đủ (giữ nguyên
-  // định dạng chữ trong nội dung) vẫn nên dùng "⬇ Export JSON" / "⬆ Import JSON".
-  // ==========================================================================
-  var CONTENT_KEY = 'content_planner_data_v1';
-  var TASKS_KEY = 'content_planner_tasks_v1';
-  var TRADE_KEY = 'content_planner_trade_events_v1';
-
-  function readJSON(key){
-    try {
-      var raw = localStorage.getItem(key);
-      var parsed = raw ? JSON.parse(raw) : [];
-      return Array.isArray(parsed) ? parsed : [];
-    } catch (e) { return []; }
-  }
-
-  function stripHtml(html){
-    var tmp = document.createElement('div');
-    tmp.innerHTML = html || '';
-    return tmp.textContent || tmp.innerText || '';
-  }
-
-  function ddmmyyyy(iso){
-    if (!iso) return '';
-    var parts = String(iso).split('-');
-    if (parts.length !== 3) return iso;
-    return parts[2] + '/' + parts[1] + '/' + parts[0];
-  }
-
-  function buildContentRows(list){
-    return list.map(function(item){
-      return {
-        'ID': item.id || '',
-        'Tuần': item.week || '',
-        'Ngày đăng': ddmmyyyy(item.date),
-        'Nội dung (tóm tắt)': item.content || stripHtml(item.bodyHtml).slice(0, 180),
-        'Nội dung đầy đủ (HTML)': item.bodyHtml || '',
-        'Thương hiệu': item.brand || '',
-        'Định dạng': item.format || '',
-        'Pillar': item.pillar || '',
-        'Trạng thái': item.status || '',
-        'Danh mục sản phẩm': item.product || '',
-        'CTA': item.cta || '',
-        'Kênh': Array.isArray(item.channels) ? item.channels.join(', ') : '',
-        'Người phụ trách': item.assignee || '',
-        'Deadline': ddmmyyyy(item.deadline),
-        'Link': item.link || '',
-        'Thumbnail': item.thumb || ''
-      };
-    });
-  }
-
-  // ==========================================================================
-  // Xuất Excel — TÁCH THÀNH NHIỀU FILE theo từng lô (mặc định 400 content/
-  // file) để đảm bảo luôn xuất được toàn bộ dữ liệu, kể cả khi số lượng
-  // content rất lớn (một file Excel quá to dễ bị treo trình duyệt hoặc lỗi
-  // khi build). Mỗi file được đặt tên có số thứ tự để dễ import lại đầy đủ.
-  // ==========================================================================
-  var EXCEL_CHUNK_SIZE = 400;
-
-  function downloadWorkbook(rows, fileName){
-    var wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), 'Content');
-    var wbArray = XLSX.write(wb, { type: 'array', bookType: 'xlsx' });
-    var blob = new Blob([wbArray], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-    var url = URL.createObjectURL(blob);
-    var link = document.createElement('a');
-    link.href = url;
-    link.download = fileName;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
-  }
-
-  function exportExcel(){
-    try {
-      if (typeof XLSX === 'undefined') {
-        alert('Không tải được thư viện xuất Excel (XLSX). Vui lòng kiểm tra kết nối mạng rồi thử lại — nếu vẫn không được, mạng có thể đang chặn CDN "cdn.jsdelivr.net".');
-        return;
-      }
-      var allContent = readJSON(CONTENT_KEY);
-      if (allContent.length === 0) {
-        alert('Chưa có content nào để xuất.');
-        return;
-      }
-      var chunks = [];
-      for (var i = 0; i < allContent.length; i += EXCEL_CHUNK_SIZE) {
-        chunks.push(allContent.slice(i, i + EXCEL_CHUNK_SIZE));
-      }
-      var dateStr = new Date().toISOString().slice(0, 10);
-      var totalChunks = chunks.length;
-
-      if (totalChunks > 1) {
-        var proceed = confirm(
-          'Có ' + allContent.length + ' content — sẽ được tách thành ' + totalChunks +
-          ' file Excel (mỗi file tối đa ' + EXCEL_CHUNK_SIZE + ' content) để đảm bảo xuất được đầy đủ.\n\n' +
-          'Trình duyệt sẽ tự động tải xuống lần lượt ' + totalChunks + ' file. Bấm OK để tiếp tục.'
-        );
-        if (!proceed) return;
-      }
-
-      function downloadNext(index){
-        if (index >= chunks.length) return;
-        var fileName = totalChunks > 1
-          ? 'content-planner-backup-' + dateStr + '-phan-' + (index + 1) + 'cua' + totalChunks + '.xlsx'
-          : 'content-planner-backup-' + dateStr + '.xlsx';
-        downloadWorkbook(buildContentRows(chunks[index]), fileName);
-        setTimeout(function(){ downloadNext(index + 1); }, 400);
-      }
-      downloadNext(0);
-    } catch (err) {
-      console.error('[Kafka X] Lỗi xuất Excel:', err);
-      alert('Xuất Excel thất bại: ' + (err && err.message ? err.message : String(err)) + '\n\nVui lòng chụp lại thông báo này và báo lại để được hỗ trợ debug.');
-    }
-  }
-
-  var excelBtn = document.getElementById('exportExcelBtn');
-  if (excelBtn) excelBtn.addEventListener('click', exportExcel);
-
-  // ==========================================================================
-  // Nhập lại từ Excel — hỗ trợ chọn NHIỀU FILE cùng lúc (đúng các file được
-  // tách ra lúc Export). Đây là chế độ BỔ SUNG/CẬP NHẬT (không xóa content
-  // nào khác không có trong file) — an toàn hơn "Import JSON" (vốn thay thế
-  // toàn bộ dữ liệu), phù hợp khi chỉ có một phần dữ liệu trong file Excel.
-  // ==========================================================================
-  function ddmmyyyyToIso(value){
-    var m = String(value || '').trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-    if (!m) return '';
-    var dd = m[1].padStart(2, '0');
-    var mm = m[2].padStart(2, '0');
-    return m[3] + '-' + mm + '-' + dd;
-  }
-
-  function excelRowToContentItem(row){
-    var channelsStr = row['Kênh'] || '';
-    return {
-      id: String(row['ID'] || '').trim(),
-      week: row['Tuần'] || '',
-      date: ddmmyyyyToIso(row['Ngày đăng']),
-      content: row['Nội dung (tóm tắt)'] || '',
-      bodyHtml: row['Nội dung đầy đủ (HTML)'] || '',
-      brand: row['Thương hiệu'] || '',
-      format: row['Định dạng'] || '',
-      pillar: row['Pillar'] || '',
-      status: row['Trạng thái'] || 'Đang thực hiện',
-      product: row['Danh mục sản phẩm'] || '',
-      cta: row['CTA'] || '',
-      channels: channelsStr ? String(channelsStr).split(',').map(function(s){ return s.trim(); }).filter(Boolean) : [],
-      assignee: row['Người phụ trách'] || '',
-      deadline: ddmmyyyyToIso(row['Deadline']),
-      link: row['Link'] || '',
-      thumb: row['Thumbnail'] || ''
-    };
-  }
-
-  function readExcelFile(file){
-    return new Promise(function(resolve, reject){
-      var reader = new FileReader();
-      reader.onload = function(e){
-        try {
-          var data = new Uint8Array(e.target.result);
-          var wb = XLSX.read(data, { type: 'array' });
-          var sheetName = wb.SheetNames.indexOf('Content') !== -1 ? 'Content' : wb.SheetNames[0];
-          var sheet = wb.Sheets[sheetName];
-          var rows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
-          resolve(rows.map(excelRowToContentItem).filter(function(item){ return item.id; }));
-        } catch (err) {
-          reject(err);
-        }
-      };
-      reader.onerror = function(){ reject(new Error('Không đọc được file ' + file.name)); };
-      reader.readAsArrayBuffer(file);
-    });
-  }
-
-  var importExcelBtn = document.getElementById('importExcelBtn');
-  var importExcelFile = document.getElementById('importExcelFile');
-  if (importExcelBtn && importExcelFile) {
-    importExcelBtn.addEventListener('click', function(){ importExcelFile.click(); });
-    importExcelFile.addEventListener('change', function(e){
-      var files = Array.prototype.slice.call(e.target.files || []);
-      if (files.length === 0) return;
-      Promise.all(files.map(readExcelFile)).then(function(results){
-        var merged = {};
-        results.forEach(function(rows){
-          rows.forEach(function(item){ merged[item.id] = item; });
-        });
-        var mergedList = Object.keys(merged).map(function(k){ return merged[k]; });
-        if (mergedList.length === 0) {
-          alert('Không đọc được content nào hợp lệ từ ' + files.length + ' file đã chọn.');
-          return;
-        }
-        var ok = confirm(
-          'Đọc được ' + mergedList.length + ' content từ ' + files.length + ' file Excel.\n\n' +
-          'Các content này sẽ được THÊM MỚI (nếu ID chưa tồn tại) hoặc CẬP NHẬT (nếu ID đã có) — ' +
-          'KHÔNG xóa bất kỳ content nào khác đang có. Tiếp tục?'
-        );
-        if (!ok) { importExcelFile.value = ''; return; }
-        if (!window.__vinh_bulkUpsertContent) {
-          alert('Không tìm thấy chức năng nhập dữ liệu. Vui lòng tải lại trang rồi thử lại.');
-          return;
-        }
-        window.__vinh_bulkUpsertContent(mergedList);
-        importExcelFile.value = '';
-      }).catch(function(err){
-        console.error('[Kafka X] Lỗi đọc Excel:', err);
-        alert('Đọc file Excel thất bại: ' + (err && err.message ? err.message : String(err)));
-        importExcelFile.value = '';
-      });
-    });
-  }
-})();
-</script>
 
 <script>
 (function(){
