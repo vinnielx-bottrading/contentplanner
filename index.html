@@ -1251,9 +1251,21 @@
             sb.from(table).select('*').then(function(res) {
               if (res.error) {
                 if (onError) onError(res.error);
+                // Tự thử lại sau 3 giây nếu gặp lỗi tạm thời, thay vì để
+                // trạng thái kẹt mãi ở "Đang kết nối..." vô thời hạn.
+                setTimeout(reload, 3000);
                 return;
               }
               onNext(makeSnapshot(res.data));
+            }).catch(function(err) {
+              // QUAN TRỌNG: trước đây thiếu .catch() ở đây — nếu request gặp
+              // lỗi mạng thực sự (không phải lỗi Supabase trả về, mà là
+              // promise bị reject, ví dụ mất mạng tạm thời lúc tải trang lần
+              // đầu), lỗi sẽ bị "nuốt" âm thầm và trạng thái kẹt vĩnh viễn ở
+              // "Đang kết nối..." dù các thao tác khác (lưu/xóa) vẫn hoạt
+              // động bình thường qua đường gọi API riêng của chúng.
+              if (onError) onError(err);
+              setTimeout(reload, 3000);
             });
           }
           reload();
