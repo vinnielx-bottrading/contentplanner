@@ -242,16 +242,6 @@
     opacity:.82;
   }
   /* ===== Thanh công cụ: gọn lại thành 1 dòng chính + 1 khay bộ lọc ẩn/hiện ===== */
-  .quick-chip{
-    border:1px solid var(--border);background:#fff;color:var(--text);
-    border-radius:999px;padding:8px 14px;font-size:12.5px;font-weight:700;
-    cursor:pointer;transition:all .15s ease;white-space:nowrap;
-  }
-  .quick-chip:hover{border-color:#94a3d6;}
-  .quick-chip.active{
-    background:linear-gradient(135deg,#6a5cf0,#a259e6);
-    color:#fff;border-color:transparent;
-  }
   .toolbar-main-row{margin-bottom:8px;}
   .toolbar-filters-row{
     background:#f7f8fc;border:1px solid var(--border);border-radius:10px;
@@ -554,7 +544,7 @@
   }
   .tab-btn:hover{background:#eef1f7;color:var(--text);}
   .tab-btn.active{background:#eaf0fd;color:var(--accent-dark);}
-  .hidden-section{display:none;}
+  .hidden-section{display:none !important;}
   .sub-toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:16px;}
 
   .task-table-wrap{
@@ -759,7 +749,6 @@
   <section id="plannerSection">
     <div class="sub-toolbar toolbar-main-row">
       <input type="text" id="searchBox" class="toolbar-search-input" placeholder="Tìm nội dung...">
-      <button type="button" class="quick-chip" id="myPostsChip">👤 Bài của tôi</button>
       <button type="button" class="btn-ghost" id="toggleFiltersBtn">🔍 Bộ lọc &amp; Xuất/Nhập ▾</button>
       <button class="btn-primary" id="addBtn">+ Thêm Content</button>
     </div>
@@ -1430,26 +1419,13 @@
     _0x5058e4 = document['getElementById']("filterStatus");
   _0x476524["innerHTML"] = "<option value=\"\">Tất cả Kênh</option>" + _0xb5b91a["map"](_0x274489 => "<option value=\"" + _0x274489 + '\x22>' + _0x274489 + "</option>")["join"](''), _0x3c249["innerHTML"] = "<option value=\"\">Tất cả Pillar</option>" + _0x1baf87['map'](_0x2509d1 => "<option value=\"" + _0x2509d1 + '\x22>' + _0x2509d1 + '</option>')["join"](''), _0x504d15["innerHTML"] = "<option value=\"\">Tất cả Thương hiệu</option>" + _0x5bb905["map"](_0x125ba2 => '<option\x20value=\x22' + _0x125ba2 + '\x22>' + _0x125ba2 + "</option>")["join"](''), _0x5058e4["innerHTML"] = '<option\x20value=\x22\x22>Tất\x20cả\x20Trạng\x20thái</option>' + _0x204bfd["map"](_0x26f9b2 => "<option value=\"" + _0x26f9b2 + '\x22>' + _0x26f9b2 + '</option>')['join']('');
   const _0xbf5673 = ["Tháng 1", "Tháng 2", "Tháng 3", 'Tháng\x204', "Tháng 5", "Tháng 6", "Tháng 7", "Tháng 8", "Tháng 9", "Tháng 10", 'Tháng\x2011', "Tháng 12"];
-  // ===== Cải thiện UI/UX: khay bộ lọc ẩn/hiện + filter nhanh "Bài của tôi" =====
-  let __onlyMine = false;
+  // ===== Cải thiện UI/UX: khay bộ lọc ẩn/hiện =====
   const __toggleFiltersBtn = document.getElementById('toggleFiltersBtn');
   const __filtersPanel = document.getElementById('filtersPanel');
   if (__toggleFiltersBtn && __filtersPanel) {
     __toggleFiltersBtn.addEventListener('click', function() {
       __filtersPanel.classList.toggle('hidden-section');
       __toggleFiltersBtn.classList.toggle('active');
-    });
-  }
-  const __myPostsChip = document.getElementById('myPostsChip');
-  if (__myPostsChip) {
-    __myPostsChip.addEventListener('click', function() {
-      if (!_0xCurrentUser) {
-        alert('Bạn cần đăng nhập để dùng bộ lọc "Bài của tôi".');
-        return;
-      }
-      __onlyMine = !__onlyMine;
-      __myPostsChip.classList.toggle('active', __onlyMine);
-      _0x20ff35();
     });
   }
 
@@ -1501,7 +1477,6 @@
     if (_0x41ca09 && _0x4d6a44["brand"] !== _0x41ca09) return ![];
     if (_0x85f853 && !(_0x4d6a44['date'] && _0x4d6a44["date"]['startsWith'](_0x85f853))) return ![];
     if (_0x24786d && _0x4d6a44["status"] !== _0x24786d) return ![];
-    if (__onlyMine && _0xCurrentUser && _0x4d6a44['assignee'] !== _0xCurrentUser.displayName) return ![];
     return !![];
   }
   const _0x1157ab = document['getElementById']("gridCount");
