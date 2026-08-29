@@ -1233,10 +1233,14 @@
               var row = Object.assign({}, data, {
                 id: id
               });
-              return sb.from(table).upsert(row);
+              // Bọc bằng Promise.resolve() để đảm bảo LUÔN trả về Promise
+              // chuẩn (có .then/.catch) — không phụ thuộc vào việc thư viện
+              // supabase-js (tải qua CDN không ghim phiên bản) trả về đúng
+              // kiểu thenable nào ở từng bản cập nhật.
+              return Promise.resolve(sb.from(table).upsert(row));
             },
             delete: function() {
-              return sb.from(table).delete().eq('id', id);
+              return Promise.resolve(sb.from(table).delete().eq('id', id));
             }
           };
         },
