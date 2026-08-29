@@ -226,6 +226,38 @@
   .badge-product{background:#dcefe0;color:#2f8a4c;}
   .badge-cta{background:#fdf1c7;color:#a8790c;}
   .badge-channel{background:#e3e9fd;color:#3f5bd9;}
+  /* ===== Cải thiện UI/UX: icon kênh nổi bật + tag phụ nhẹ nhàng hơn ===== */
+  .channel-icons{
+    display:flex;flex-wrap:wrap;gap:4px;margin-top:2px;
+  }
+  .channel-icon-pill{
+    display:inline-flex;align-items:center;gap:4px;
+    background:#f1f4ff;border:1px solid #dbe3ff;border-radius:999px;
+    padding:3px 9px 3px 6px;font-size:11px;font-weight:700;color:#3f5bd9;
+  }
+  .channel-icon-pill .ci-emoji{font-size:14px;line-height:1;}
+  .badges-secondary{display:flex;flex-wrap:wrap;gap:4px;}
+  .badges-secondary .badge{
+    font-size:10px;font-weight:600;padding:2px 7px;
+    opacity:.82;
+  }
+  /* ===== Thanh công cụ: gọn lại thành 1 dòng chính + 1 khay bộ lọc ẩn/hiện ===== */
+  .quick-chip{
+    border:1px solid var(--border);background:#fff;color:var(--text);
+    border-radius:999px;padding:8px 14px;font-size:12.5px;font-weight:700;
+    cursor:pointer;transition:all .15s ease;white-space:nowrap;
+  }
+  .quick-chip:hover{border-color:#94a3d6;}
+  .quick-chip.active{
+    background:linear-gradient(135deg,#6a5cf0,#a259e6);
+    color:#fff;border-color:transparent;
+  }
+  .toolbar-main-row{margin-bottom:8px;}
+  .toolbar-filters-row{
+    background:#f7f8fc;border:1px solid var(--border);border-radius:10px;
+    padding:12px;margin-bottom:14px;
+  }
+  .toolbar-search-input{flex:1;min-width:180px;}
   .card-footer{
     display:flex;
     justify-content:space-between;
@@ -725,8 +757,13 @@
 
 <main>
   <section id="plannerSection">
-    <div class="sub-toolbar">
-      <input type="text" id="searchBox" placeholder="Tìm nội dung...">
+    <div class="sub-toolbar toolbar-main-row">
+      <input type="text" id="searchBox" class="toolbar-search-input" placeholder="Tìm nội dung...">
+      <button type="button" class="quick-chip" id="myPostsChip">👤 Bài của tôi</button>
+      <button type="button" class="btn-ghost" id="toggleFiltersBtn">🔍 Bộ lọc &amp; Xuất/Nhập ▾</button>
+      <button class="btn-primary" id="addBtn">+ Thêm Content</button>
+    </div>
+    <div class="sub-toolbar toolbar-filters-row hidden-section" id="filtersPanel">
       <select id="filterMonth"><option value="">Tất cả tháng</option></select>
       <select id="filterStatus"><option value="">Tất cả Trạng thái</option></select>
       <select id="filterBrand"><option value="">Tất cả Thương hiệu</option></select>
@@ -735,7 +772,6 @@
       <button class="btn-ghost" id="exportBtn">⬇ Export JSON</button>
       <button class="btn-ghost" id="importBtn">⬆ Import JSON</button>
       <input type="file" id="importFile" accept="application/json">
-      <button class="btn-primary" id="addBtn">+ Thêm Content</button>
     </div>
     <div class="grid-count" id="gridCount"></div>
     <div id="board"></div>
@@ -1394,6 +1430,28 @@
     _0x5058e4 = document['getElementById']("filterStatus");
   _0x476524["innerHTML"] = "<option value=\"\">Tất cả Kênh</option>" + _0xb5b91a["map"](_0x274489 => "<option value=\"" + _0x274489 + '\x22>' + _0x274489 + "</option>")["join"](''), _0x3c249["innerHTML"] = "<option value=\"\">Tất cả Pillar</option>" + _0x1baf87['map'](_0x2509d1 => "<option value=\"" + _0x2509d1 + '\x22>' + _0x2509d1 + '</option>')["join"](''), _0x504d15["innerHTML"] = "<option value=\"\">Tất cả Thương hiệu</option>" + _0x5bb905["map"](_0x125ba2 => '<option\x20value=\x22' + _0x125ba2 + '\x22>' + _0x125ba2 + "</option>")["join"](''), _0x5058e4["innerHTML"] = '<option\x20value=\x22\x22>Tất\x20cả\x20Trạng\x20thái</option>' + _0x204bfd["map"](_0x26f9b2 => "<option value=\"" + _0x26f9b2 + '\x22>' + _0x26f9b2 + '</option>')['join']('');
   const _0xbf5673 = ["Tháng 1", "Tháng 2", "Tháng 3", 'Tháng\x204', "Tháng 5", "Tháng 6", "Tháng 7", "Tháng 8", "Tháng 9", "Tháng 10", 'Tháng\x2011', "Tháng 12"];
+  // ===== Cải thiện UI/UX: khay bộ lọc ẩn/hiện + filter nhanh "Bài của tôi" =====
+  let __onlyMine = false;
+  const __toggleFiltersBtn = document.getElementById('toggleFiltersBtn');
+  const __filtersPanel = document.getElementById('filtersPanel');
+  if (__toggleFiltersBtn && __filtersPanel) {
+    __toggleFiltersBtn.addEventListener('click', function() {
+      __filtersPanel.classList.toggle('hidden-section');
+      __toggleFiltersBtn.classList.toggle('active');
+    });
+  }
+  const __myPostsChip = document.getElementById('myPostsChip');
+  if (__myPostsChip) {
+    __myPostsChip.addEventListener('click', function() {
+      if (!_0xCurrentUser) {
+        alert('Bạn cần đăng nhập để dùng bộ lọc "Bài của tôi".');
+        return;
+      }
+      __onlyMine = !__onlyMine;
+      __myPostsChip.classList.toggle('active', __onlyMine);
+      _0x20ff35();
+    });
+  }
 
   function _0x401a0a() {}
 
@@ -1443,6 +1501,7 @@
     if (_0x41ca09 && _0x4d6a44["brand"] !== _0x41ca09) return ![];
     if (_0x85f853 && !(_0x4d6a44['date'] && _0x4d6a44["date"]['startsWith'](_0x85f853))) return ![];
     if (_0x24786d && _0x4d6a44["status"] !== _0x24786d) return ![];
+    if (__onlyMine && _0xCurrentUser && _0x4d6a44['assignee'] !== _0xCurrentUser.displayName) return ![];
     return !![];
   }
   const _0x1157ab = document['getElementById']("gridCount");
@@ -1593,12 +1652,18 @@
     });
   }
 
+  const __CHANNEL_ICON_MAP = {
+    'Facebook': '📘', 'TikTok': '🎵', 'Instagram': '📸', 'Threads': '🧵',
+    'YouTube': '▶️', 'Website': '🌐', 'Zalo': '💬'
+  };
+
   function _0x4a8704(_0xb066f0) {
     const _0x14bf33 = _0x12fda4,
       _0x91d828 = document["createElement"]("div");
     _0x91d828['className'] = "card" + ((_0xb066f0["status"] === 'Chờ xuất bản' || _0xb066f0["status"] === 'Xuất bản') ? " card-approved" : '') + (_0xb066f0['feedback'] && _0xb066f0["status"] === 'Đang thực hiện' ? ' card-has-feedback' : '') + (_0xb066f0["status"] === 'Đang xem xét' ? ' card-needs-approval' : ''), _0x91d828["dataset"]['id'] = _0xb066f0['id'];
     const _0x4c057f = _0xb066f0["date"] ? _0x2e9f76(_0xb066f0['date']) : '',
-      _0x599a8e = [];
+      _0x599a8e = [],
+      __secondaryBadges = [];
     if (_0xb066f0["status"]) {
       const _0x1f0c2d = _0x50a568[_0xb066f0["status"]],
         _0x383872 = _0x1f0c2d ? "background:" + _0x1f0c2d['bg'] + ';color:' + _0x1f0c2d["color"] + ';' : '';
@@ -1607,28 +1672,35 @@
     if (_0xb066f0["brand"]) {
       const _0x99977 = _0x3090ac[_0xb066f0["brand"]],
         _0xe26ea8 = _0x99977 ? "background:" + _0x99977['bg'] + ";color:" + _0x99977['color'] + ';' : '';
-      _0x599a8e['push']("<span class=\"badge\" style=\"" + _0xe26ea8 + '\x22>' + _0x5cc9d3(_0xb066f0['brand']) + "</span>");
+      __secondaryBadges['push']("<span class=\"badge\" style=\"" + _0xe26ea8 + '\x22>' + _0x5cc9d3(_0xb066f0['brand']) + "</span>");
     }
     if (_0xb066f0["format"]) {
       const _0x242168 = _0x4637b3[_0xb066f0["format"]],
         _0x3f4ccc = _0x242168 ? "background:" + _0x242168['bg'] + ";color:" + _0x242168['color'] + ';' : '';
-      _0x599a8e["push"]("<span class=\"badge\" style=\"" + _0x3f4ccc + '\x22>' + _0x5cc9d3(_0xb066f0['format']) + "</span>");
+      __secondaryBadges["push"]("<span class=\"badge\" style=\"" + _0x3f4ccc + '\x22>' + _0x5cc9d3(_0xb066f0['format']) + "</span>");
     }
     if (_0xb066f0['pillar']) {
       const _0x1b5cac = _0x46dba2[_0xb066f0["pillar"]],
         _0x238e6f = _0x1b5cac ? "background:" + _0x1b5cac['bg'] + ';color:' + _0x1b5cac["color"] + ';' : '';
-      _0x599a8e["push"]("<span class=\"badge badge-pillar\" style=\"" + _0x238e6f + '\x22>' + _0x5cc9d3(_0xb066f0['pillar']) + "</span>");
+      __secondaryBadges["push"]("<span class=\"badge badge-pillar\" style=\"" + _0x238e6f + '\x22>' + _0x5cc9d3(_0xb066f0['pillar']) + "</span>");
     }
     if (_0xb066f0["product"]) {
       const _0x1301ed = _0x26483e[_0xb066f0["product"]],
         _0x2822c5 = _0x1301ed ? "background:" + _0x1301ed['bg'] + ";color:" + _0x1301ed["color"] + ';' : '';
-      _0x599a8e["push"]('<span\x20class=\x22badge\x20badge-product\x22\x20style=\x22' + _0x2822c5 + '\x22>' + _0x5cc9d3(_0xb066f0["product"]) + "</span>");
+      __secondaryBadges["push"]('<span\x20class=\x22badge\x20badge-product\x22\x20style=\x22' + _0x2822c5 + '\x22>' + _0x5cc9d3(_0xb066f0["product"]) + "</span>");
     }
-    if (_0xb066f0["cta"]) _0x599a8e["push"]("<span class=\"badge badge-cta\">" + _0x5cc9d3(_0xb066f0["cta"]) + "</span>");
-    return (_0xb066f0["channels"] || [])["forEach"](_0x1f28cd => _0x599a8e["push"]("<span class=\"badge badge-channel\">" + _0x5cc9d3(_0x1f28cd) + "</span>")), _0x91d828["innerHTML"] = "\n      " + (_0xb066f0["thumb"] ? '<img\x20class=\x22card-thumb\x22\x20src=\x22' + _0x58e44e(_0xb066f0["thumb"]) + "\" onerror=\"this.style.display='none'\">" : '') + '\x0a\x20\x20\x20\x20\x20\x20<div\x20class=\x22card-meta-top\x22>\x0a\x20\x20\x20\x20\x20\x20\x20\x20<span>' + _0x5cc9d3(_0xb066f0["week"] || '') + "</span>\n        <span>" + _0x4c057f + "</span>\n      </div>\n      <div class=\"card-title\">" + _0x5cc9d3(_0xb066f0["content"] || "(Chưa có nội dung)") + '</div>\x0a\x20\x20\x20\x20\x20\x20<div\x20class=\x22badges\x22>' + _0x599a8e["join"]('') + "</div>\n      <div class=\"card-footer\">\n        <span class=\"assignee\">" + (_0xb066f0['assignee'] ? '<span\x20class=\x22avatar\x22>' + _0x367fc5(_0xb066f0["assignee"]) + "</span>" + _0x5cc9d3(_0xb066f0["assignee"]) : '') + "</span>\n        <span class=\"footer-right\">\n          " + (_0xb066f0["link"] ? '<a\x20href=\x22' + _0x58e44e(_0xb066f0["link"]) + '\x22\x20target=\x22_blank\x22\x20rel=\x22noopener\x22\x20onclick=\x22event.stopPropagation()\x22>Xem\x20bài\x20↗</a>' : _0xb066f0["deadline"] ? '<span>Hạn:\x20' + _0x2e9f76(_0xb066f0["deadline"]) + '</span>' : '') + "\n          <button type=\"button\" class=\"card-delete-btn\" title=\"Xóa content\">🗑</button>\n        </span>\n      </div>\n    ", _0x91d828["addEventListener"]("click", () => _0xaead22(_0xb066f0['id'])), _0x91d828["querySelector"](".card-delete-btn")["addEventListener"]("click", _0x598222 => {
+    if (_0xb066f0["cta"]) __secondaryBadges["push"]("<span class=\"badge badge-cta\">" + _0x5cc9d3(_0xb066f0["cta"]) + "</span>");
+    const __channelIconsHtml = (_0xb066f0["channels"] || []).map(function(ch) {
+      var icon = __CHANNEL_ICON_MAP[ch] || '📡';
+      return '<span class="channel-icon-pill"><span class="ci-emoji">' + icon + '</span>' + _0x5cc9d3(ch) + '</span>';
+    }).join('');
+    _0x91d828["innerHTML"] = "\n      " + (_0xb066f0["thumb"] ? '<img\x20class=\x22card-thumb\x22\x20src=\x22' + _0x58e44e(_0xb066f0["thumb"]) + "\" onerror=\"this.style.display='none'\">" : '') + '\x0a\x20\x20\x20\x20\x20\x20<div\x20class=\x22card-meta-top\x22>\x0a\x20\x20\x20\x20\x20\x20\x20\x20<span>' + _0x5cc9d3(_0xb066f0["week"] || '') + "</span>\n        <span>" + _0x4c057f + "</span>\n      </div>\n      <div class=\"card-title\">" + _0x5cc9d3(_0xb066f0["content"] || "(Chưa có nội dung)") + '</div>\x0a\x20\x20\x20\x20\x20\x20<div\x20class=\x22badges\x22>' + _0x599a8e["join"]('') + "</div>" + (__channelIconsHtml ? '<div class="channel-icons">' + __channelIconsHtml + '</div>' : '') + (__secondaryBadges.length ? '<div class="badges-secondary">' + __secondaryBadges.join('') + '</div>' : '') + "\n      <div class=\"card-footer\">\n        <span class=\"assignee\">" + (_0xb066f0['assignee'] ? '<span\x20class=\x22avatar\x22>' + _0x367fc5(_0xb066f0["assignee"]) + "</span>" + _0x5cc9d3(_0xb066f0["assignee"]) : '') + "</span>\n        <span class=\"footer-right\">\n          " + (_0xb066f0["link"] ? '<a\x20href=\x22' + _0x58e44e(_0xb066f0["link"]) + '\x22\x20target=\x22_blank\x22\x20rel=\x22noopener\x22\x20onclick=\x22event.stopPropagation()\x22>Xem\x20bài\x20↗</a>' : _0xb066f0["deadline"] ? '<span>Hạn:\x20' + _0x2e9f76(_0xb066f0["deadline"]) + '</span>' : '') + "\n          <button type=\"button\" class=\"card-delete-btn\" title=\"Xóa content\">🗑</button>\n        </span>\n      </div>\n    ";
+    _0x91d828["addEventListener"]("click", () => _0xaead22(_0xb066f0['id']));
+    _0x91d828["querySelector"](".card-delete-btn")["addEventListener"]("click", _0x598222 => {
       const _0x361bc9 = _0x14bf33;
       _0x598222["stopPropagation"](), _0x5135da(_0xb066f0['id']);
-    }), _0x91d828;
+    });
+    return _0x91d828;
   }
 
   function _0x2e9f76(_0x28f1ca) {
